@@ -1,0 +1,362 @@
+<html>
+<head>
+	<title>SVG test</title>
+</head>
+<body style="overflow: hidden;background-color:rgb(0,0,0)">
+<div style="border:1px solid #000000;width:100%;height:100%" id="viewPort">
+<a style="-webkit-appearance: button;cursor: hand;padding:5px;position: absolute;right: 10px;top: 110px" onClick="viewPort.scale(1.5);drawThings();">back up</a>
+<svg ontouchstart="svg.onTouchStart(event)" ontouchmove="svg.onTouchMove(event)" ontouchend="svg.onTouchEnd(event)" onMouseDown="svg.onMouseDown(event.clientX, event.clientY)" onMouseUp="svg.onMouseUp()" onMouseMove="svg.onMouseMove(event.clientX, event.clientY)" id="viewPortSvg" width="100%" height="100%" style="border: 1px solid #000000">
+<line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(100,100,100);stroke-width:1" id="xAxis"/>
+<text x="10" y="10" fill="rgb(100,100,100)" id="xAxisLabel">x</text>
+<line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(100,100,100);stroke-width:1" id="yAxis"/>
+<text x="10" y="10" fill="rgb(100,100,100)" id="yAxisLabel">y</text>
+<line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(100,100,100);stroke-width:1" id="zAxis"/>
+<text x="10" y="10" fill="rgb(100,100,100)" id="zAxisLabel">z</text>
+</svg>
+</div>
+<script language="JavaScript">
+var Point=function(x,y,z){
+	this.x=x;
+	this.y=y;
+	this.z=z;
+};
+Point.prototype.plus=function(p){
+	return new Point(this.x+p.x,this.y+p.y,this.z+p.z);
+};
+Point.prototype.scale=function(r){
+	return new Point(this.x*r, this.y*r, this.z*r);
+};
+Point.prototype.minus=function(p){
+	return this.plus(p.scale(-1));
+};
+Point.prototype.dot=function(p){
+	return this.x*p.x+this.y*p.y+this.z*p.z;
+};
+Point.prototype.cross=function(p){
+	return new Point(this.y*p.z-this.z*p.y,this.z*p.x-this.x*p.z,this.x*p.y-this.y*p.x);
+};
+Point.prototype.norm=function(){
+	return Math.sqrt(Math.pow(this.x, 2)+Math.pow(this.y, 2)+Math.pow(this.z, 2));
+};
+Point.prototype.unit=function(){
+	if(this.norm()==0){return this;}
+	return this.scale(1/this.norm());
+};
+Point.prototype.project=function(p){
+	var u=this.unit();
+	return u.scale(u.dot(p));
+};
+Point.prototype.projectOnPlane=function(point, normal){
+	return point.plus(this.minus(point).minus(normal.project(this.minus(point))));
+};
+Point.prototype.rotate=function(around, axis, angle){
+	var op=this.minus(around);
+	if(axis==0){
+		var npy=op.y*Math.cos(angle)-op.z*Math.sin(angle);
+		var npz=op.z*Math.cos(angle)+op.y*Math.sin(angle);
+		return around.plus(new Point(op.x, npy, npz));
+	}
+	if(axis==1){
+		var npz=op.z*Math.cos(angle)-op.x*Math.sin(angle);
+		var npx=op.x*Math.cos(angle)+op.z*Math.sin(angle);
+		return around.plus(new Point(npx, op.y, npz));
+	}
+	if(axis==2){
+		var npx=op.x*Math.cos(angle)-op.y*Math.sin(angle);
+		var npy=op.y*Math.cos(angle)+op.x*Math.sin(angle);
+		return around.plus(new Point(npx, npy, op.z));
+	}
+};
+Point.prototype.rotateWithRotation=function(r){
+	return this.rotate(r.around, r.axis, r.angle);
+};
+Point.prototype.perpendicularTo=function(p){
+	return Math.abs(this.dot(p))<0.0005;
+};
+var Line=function(point1, point2){
+	this.p1=point1;
+	this.baseVector=point2.minus(point1);
+};
+Line.prototype.intersectWithPlane=function(point, normal){
+	if(this.baseVector.perpendicularTo(normal)){return null;}
+	var t=-normal.dot(this.p1.minus(point))/normal.dot(this.baseVector);
+	return this.p1.plus(this.baseVector.scale(t));
+};
+var Rotation=function(around, axis, angle){
+	this.around=around;
+	this.axis=axis;
+	this.angle=angle;
+};
+var viewPort={
+	w:0,
+	h:0,
+	leftTop: new Point(1, 1, -1),
+	leftAxis: new Point(-1,0,0),
+	topAxis: new Point(0,-1,0),
+	viewPoint: new Point(0,0,-3),
+	setSize: function(){
+		this.w=document.getElementById("viewPort").offsetWidth;
+		this.h=document.getElementById("viewPort").offsetHeight;
+		var r=this.h/this.w;
+		this.leftTop=new Point(0.5, 0.5*r,-1);
+		this.topAxis=this.topAxis.scale(r);
+		this.normal=this.leftAxis.cross(this.topAxis);
+	},
+	setScale: function(r){
+		this.leftAxis=this.leftAxis.scale(r);
+		this.topAxis=this.topAxis.scale(r);
+	},
+	lt: function(point){
+		var line=new Line(this.viewPoint, point);
+		if(line.baseVector.perpendicularTo(this.normal)){return null;}
+		var t=-this.normal.dot(this.viewPoint.minus(this.leftTop))/this.normal.dot(line.baseVector);
+		if(t<0){return null;}
+		var inPlane=this.viewPoint.plus(line.baseVector.scale(t));
+		var leftTopToInPlane=inPlane.minus(this.leftTop);
+		var l=this.leftAxis.unit().dot(leftTopToInPlane)/this.leftAxis.norm();
+		var t=this.topAxis.unit().dot(leftTopToInPlane)/this.topAxis.norm();
+		return {left: l*this.w,top: t*this.h};
+	},
+	rotateWithRotation: function(r){
+		this.leftAxis=this.leftTop.plus(this.leftAxis);
+		this.topAxis=this.leftTop.plus(this.topAxis);
+		this.leftTop=this.leftTop.rotateWithRotation(r);
+		this.leftAxis=this.leftAxis.rotateWithRotation(r).minus(this.leftTop);
+		this.topAxis=this.topAxis.rotateWithRotation(r).minus(this.leftTop);
+		this.viewPoint=this.viewPoint.rotateWithRotation(r);
+		this.normal=this.leftAxis.cross(this.topAxis);
+	},
+	rotX: function(angle){
+		this.rotateWithRotation(new Rotation(new Point(0,0,0), 0, angle));
+	},
+	rotY: function(angle){
+		this.rotateWithRotation(new Rotation(new Point(0,0,0), 1, angle));
+	},
+	rotZ: function(angle){
+		this.rotateWithRotation(new Rotation(new Point(0,0,0), 2, angle));
+	},
+	scale: function(r){
+		this.leftTop=this.leftTop.scale(r);
+		this.leftAxis=this.leftAxis.scale(r);
+		this.topAxis=this.topAxis.scale(r);
+		this.viewPoint=this.viewPoint.scale(r);
+		this.normal=this.leftAxis.cross(this.topAxis);
+	}
+};
+
+viewPort.setSize();
+
+var or=new Point(0,0,0);
+var xu=new Point(1,0,0);
+var yu=new Point(0,1,0);
+var zu=new Point(0,0,1);
+
+var LineSegment=function(from, to, id, index){
+	this.from=from;
+	this.to=to;
+	this.index=index;
+};
+LineSegment.prototype.draw=function(){
+	var flt=viewPort.lt(this.from);
+	var tlt=viewPort.lt(this.to);
+	if(flt==null&&tlt==null){
+	}else{
+		var i=1;
+		while(tlt==null&&i<10){
+			tlt=viewPort.lt(this.from.scale(i/10).plus(this.to.scale((10-i)/10)));
+			i++;
+		}
+		i=1;
+		while(flt==null&&i<10){
+			flt=viewPort.lt(this.to.scale(i/10).plus(this.from.scale((10-i)/10)));
+			i++;
+		}
+		svg.lineSegments[this.index].setFromTo(flt, tlt);
+		svg.lineSegments[this.index].draw();
+	}
+	
+};
+var LineSegmentFactory={
+	lineSegments: [],
+	currentNumber: 0,
+	makeLineSegment: function(from, to, color){
+		var id="lineSegment"+this.currentNumber;
+		var index=this.currentNumber;
+		var flt=viewPort.lt(from);
+		var tlt=viewPort.lt(to);
+		this.lineSegments[this.currentNumber]=new LineSegment(from, to, id, index);
+		if(flt!=null&&tlt!=null){
+			svg.addLineSegment(flt.left, flt.top, tlt.left, tlt.top, id, index, color);
+		}else{
+			svg.addLineSegment(0,0,0,0, id, index, color);
+		}
+		
+		this.currentNumber++;
+	}
+};
+var LineLine=function(p1, p2, id, index){
+	this.line=new Line(p1,p2);
+	this.index=index;
+};
+LineLine.prototype.draw=function(){
+	var p1=this.line.p1;
+	var p2=p1.plus(this.line.baseVector);
+	var p1lt=viewPort.lt(p1);
+	var p2lt=viewPort.lt(p2);
+	if(p1lt==null&&p2lt==null){
+	}else{
+		var i=1;
+		while(p1lt==null&&i<10){
+			p1lt=viewPort.lt(p2.scale(i/10).plus(p1.scale((10-i)/10)));
+			i++;
+		}
+		i=1;
+		while(p2lt==null&&i<10){
+			p2lt=viewPort.lt(p1.scale(i/10).plus(p2.scale((10-i)/10)));
+			i++;
+		}
+		svg.lineLines[this.index].setFromTo(p1lt, p2lt);
+		svg.lineLines[this.index].draw();
+	}
+};
+var LineLineFactory={
+	lineLines: [],
+	currentNumber: 0,
+	makeLineLine: function(p1, p2, color){
+		var id="lineLine"+this.currentNumber;
+		var index=this.currentNumber;
+		var p1lt=viewPort.lt(p1);
+		var p2lt=viewPort.lt(p2);
+		this.lineLines[this.currentNumber]=new LineLine(p1,p2,id,index);
+		if(p1lt!=null&&p2lt!=null){
+			svg.addLineLine(p1lt.left, p1lt.top, p2lt.left, p2lt.top, id, index, color);
+		}else{
+			svg.addLineLine(0,0,0,0, id, index, color);
+		}
+		this.currentNumber++;
+	}
+};
+var drawAxes=function(){
+	var orlt=viewPort.lt(or);
+	var xult=viewPort.lt(xu);
+	var yult=viewPort.lt(yu);
+	var zult=viewPort.lt(zu);
+
+	document.getElementById("xAxis").setAttribute("x1", orlt.left);
+	document.getElementById("xAxis").setAttribute("y1", orlt.top);
+
+	document.getElementById("xAxis").setAttribute("x2", xult.left);
+	document.getElementById("xAxis").setAttribute("y2", xult.top);
+	
+	document.getElementById("xAxisLabel").setAttribute("x", xult.left-5);
+	document.getElementById("xAxisLabel").setAttribute("y", xult.top-5);
+
+	document.getElementById("yAxis").setAttribute("x1", orlt.left);
+	document.getElementById("yAxis").setAttribute("y1", orlt.top);
+
+	document.getElementById("yAxis").setAttribute("x2", yult.left);
+	document.getElementById("yAxis").setAttribute("y2", yult.top);
+	
+	document.getElementById("yAxisLabel").setAttribute("x", yult.left-5);
+	document.getElementById("yAxisLabel").setAttribute("y", yult.top-5);
+
+	document.getElementById("zAxis").setAttribute("x1", orlt.left);
+	document.getElementById("zAxis").setAttribute("y1", orlt.top);
+
+	document.getElementById("zAxis").setAttribute("x2", zult.left);
+	document.getElementById("zAxis").setAttribute("y2", zult.top);
+	
+	document.getElementById("zAxisLabel").setAttribute("x", zult.left-5);
+	document.getElementById("zAxisLabel").setAttribute("y", zult.top-5);
+};
+var drawThings=function(){
+	drawAxes();
+	
+	var lineSegments=LineSegmentFactory.lineSegments;
+	for(var i=0;i<lineSegments.length;i++){
+		lineSegments[i].draw();
+	}
+	var lineLines=LineLineFactory.lineLines;
+	for(var i=0;i<lineLines.length;i++){
+		lineLines[i].draw();
+	}
+};
+var SvgLine=function(l1,t1,l2,t2,id, color){
+	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color+";stroke-width: 2' id='"+id+"'>";
+	this.l1=l1;
+	thislt1=t1;
+	this.l2=l2;
+	this.t2=t2;
+	this.setFromTo=function(f,t){this.l1=f.left;this.t1=f.top;this.l2=t.left;this.t2=t.top;};
+	this.draw=function(){
+		document.getElementById(id).setAttribute("x1", this.l1);
+		document.getElementById(id).setAttribute("y1", this.t1);
+		document.getElementById(id).setAttribute("x2", this.l2);
+		document.getElementById(id).setAttribute("y2", this.t2);
+	};
+};
+var svg={
+	mouseLocation: {oldl:0,oldt:0,setOldLt: function(l,t){this.oldl=l;this.oldt=t;}},
+	lineSegments: [],
+	lineLines: [],
+	mouseDown: false,
+	onMouseDown: function(l, t){this.mouseLocation.setOldLt(l, t);this.mouseDown=true;},
+	onMouseUp: function(){this.mouseDown=false;},
+	onMouseMove: function(l, t){
+		if(this.mouseDown){
+			var dl=l-this.mouseLocation.oldl;
+			var dt=t-this.mouseLocation.oldt;
+			viewPort.rotY(-dl/1000);
+			viewPort.rotX(dt/1000);
+			drawThings();
+			this.mouseLocation.setOldLt(l, t);
+		}
+	},
+	onTouchStart: function(evt){
+		evt.preventDefault();
+		var touches=evt.changedTouches;
+		if(touches.length==1){
+			var touch=evt.changedTouches[0];
+			this.onMouseDown(touch.clientX, touch.clientY);
+		}
+	},
+	onTouchEnd: function(evt){
+		this.onMouseUp();
+	},
+	onTouchMove: function(evt){
+		evt.preventDefault();
+		var touches=evt.changedTouches;
+		if(touches.length==1){
+			var touch=evt.changedTouches[0];
+			this.onMouseMove(touch.clientX, touch.clientY);
+		}
+	},
+	addLineSegment: function(l1,t1,l2,t2, id, index, color){
+		this.lineSegments[index]=new SvgLine(l1,t1,l2,t2,id,color);
+	},
+	addLineLine: function(l1,t1,l2,t2,id,index,color){
+		this.lineLines[index]=new SvgLine(l1,t1,l2,t2,id,color);
+	}
+};
+
+
+var p1=new Point(0.5,0.5,0.5);
+var p2=new Point(-0.5,0.5,0.5);
+var p3=new Point(0.5,-0.5,0.5);
+var p4=new Point(-0.5,-0.5,0.5);
+
+
+LineSegmentFactory.makeLineSegment(p1, p2, "rgb(255,0,0)");
+LineLineFactory.makeLineLine(p3,p4,"rgb(0,255,0)");
+
+
+
+
+drawThings();
+
+
+
+
+</script>
+</body>
+</html>
