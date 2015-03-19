@@ -161,11 +161,9 @@ var viewPort={
 		this.normal=this.leftAxis.cross(this.topAxis);
 	},
 	rotX: function(angle){
-		//this.rotateWithRotation(new Rotation(new Point(0,0,0), 0, angle));
 		this.rotateWithOtherRotation(new OtherRotation(new Point(0,0,0), this.leftAxis, angle));
 	},
 	rotY: function(angle){
-		//this.rotateWithRotation(new Rotation(new Point(0,0,0), 1, angle));
 		this.rotateWithOtherRotation(new OtherRotation(new Point(0,0,0), this.topAxis, angle));
 	},
 	rotZ: function(angle){
@@ -262,14 +260,48 @@ var LineLineFactory={
 	makeLineLine: function(p1, p2, color){
 		var id="lineLine"+this.currentNumber;
 		var index=this.currentNumber;
+		this.lineLines[this.currentNumber]=new LineLine(p1,p2,id,index);
 		var p1lt=viewPort.lt(p1);
 		var p2lt=viewPort.lt(p2);
-		this.lineLines[this.currentNumber]=new LineLine(p1,p2,id,index);
 		if(p1lt!=null&&p2lt!=null){
 			svg.addLineLine(p1lt.left, p1lt.top, p2lt.left, p2lt.top, id, index, color);
 		}else{
 			svg.addLineLine(0,0,0,0, id, index, color);
 		}
+		this.currentNumber++;
+	}
+};
+var Plane=function(point, normal, id, index){
+	this.point=point;
+	this.normal=normal;
+	this.index=index;
+};
+Plane.prototype.draw=function(){
+	var horizonDirections=[];
+	horizonDirections[0]=this.normal.cross(viewPort.leftAxis);
+	horizonDirections[1]=this.normal.cross(horizonDirections[0]);
+	horizonDirections[2]=horizonDirections[0].plus(horizonDirections[1]);
+	
+	var nonNullHlt=[];
+	var count=0;
+	for(var i=0;i<horizonDirections.length;i++){
+		var hlt=viewPort.horizonLt(new Line(this.point, this.point.plus(horizonDirections[i])));
+		if(hlt!=null){nonNullHlt[count++]=hlt;}
+		if(count==2){break;}
+	}
+
+	
+	svg.planes[this.index].setPoints(nonNullHlt[0], nonNullHlt[1], {left:0,top:0},{left:0,top:0});
+	svg.planes[this.index].draw();
+};
+var PlaneFactory={
+	planes: [],
+	currentNumber: 0,
+	makePlane: function(point, normal, color){
+		var id="plane"+this.currentNumber;
+		var index=this.currentNumber;
+		this.planes[this.currentNumber]=new Plane(point, normal, id, index);
+		svg.addPlane(0,0,0,0,0,0,0,0,id,index, color);
 		this.currentNumber++;
 	}
 };
@@ -317,11 +349,15 @@ var drawThings=function(){
 	for(var i=0;i<lineLines.length;i++){
 		lineLines[i].draw();
 	}
+	var planes=PlaneFactory.planes;
+	for(var i=0;i<planes.length;i++){
+		planes[i].draw();
+	}
 };
 var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color+";stroke-width: "+thickness+"' id='"+id+"'>";
 	this.l1=l1;
-	thislt1=t1;
+	this.t1=t1;
 	this.l2=l2;
 	this.t2=t2;
 	this.setFromTo=function(f,t){this.l1=f.left;this.t1=f.top;this.l2=t.left;this.t2=t.top;};
@@ -332,32 +368,37 @@ var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 		document.getElementById(id).setAttribute("y2", this.t2);
 	};
 	this.makeInfinite=function(hlt){
-		var r=svg.r;
-		var w=svg.w;
-		var h=svg.h;
-		var d=Math.sqrt(Math.pow(this.l1-this.l2, 2), Math.pow(this.t1-this.t2, 2));
+		var nlt=svg.makeInfinite(this.l1, this.t1, this.l2, this.t2,hlt);
+		this.l1=nlt.l1;
+		this.t1=nlt.t1;
+		this.l2=nlt.l2;
+		this.t2=nlt.t2;
 		
-		if(svg.inView(this.l1, this.t1)&&d!=0){
-			if(hlt!=null&&svg.inView(hlt.left, hlt.top)&&((hlt.left<this.l1&&this.l1<this.l2)||(hlt.left>this.l1&&this.l1>this.l2))){
-					this.l1=hlt.left;
-					this.t1=hlt.top;
-			}else{
-				this.l1=this.l2+(this.l1-this.l2)*r/d;
-				this.t1=this.t2+(this.t1-this.t2)*r/d;
-			}
-			
-		}
-		if(svg.inView(this.l2, this.t2)&&d!=0){
-			if(hlt!=null&&svg.inView(hlt.left, hlt.top)&&((hlt.left<this.l2&&this.l2<this.l1)||(hlt.left>this.l2&&this.l2>this.l1))){
-					this.l2=hlt.left;
-					this.t2=hlt.top;
-			}else{
-				this.l2=this.l1+(this.l2-this.l1)*r/d;
-				this.t2=this.t1+(this.t2-this.t1)*r/d;
-			}
-			
-		}
 	}
+};
+var SvgPlane=function(l1, t1, l2, t2, l3, t3, l4, t4, id, color){
+	document.getElementById("viewPortSvg").innerHTML+="<polygon points='"+l1+","+t1+" "+l2+","+t2+" "+l3+","+t3+" "+l4+","+t4+"' style='fill: "+color+"' id='"+id+"'>";
+	this.l1=l1;
+	this.t1=t1;
+	this.l2=l2;
+	this.t2=t2;
+	this.l3=l3;
+	this.t3=t3;
+	this.l4=l4;
+	this.t4=t4;
+	this.setPoints=function(lt1, lt2, lt3, lt4){
+		this.l1=lt1.left;
+		this.t1=lt1.top;
+		this.l2=lt2.left;
+		this.t2=lt2.top;
+		this.l3=lt3.left;
+		this.t3=lt3.top;
+		this.l4=lt4.left;
+		this.t4=lt4.top;
+	};
+	this.draw=function(){
+		document.getElementById(id).setAttribute("points", this.l1+","+this.t1+" "+this.l2+","+this.t2+" "+this.l3+","+this.t3+" "+this.l4+","+this.t4);
+	};
 };
 var svg={
 	w: document.getElementById("viewPort").offsetWidth,
@@ -365,9 +406,32 @@ var svg={
 	inView: function(l,t){
 		return l>=0&&l<=this.w&&t>=0&&t<=this.h;
 	},
+	makeInfinite: function(l1, t1, l2, t2,hlt){
+		var d=Math.sqrt(Math.pow(l1-l2, 2), Math.pow(t1-t2, 2));
+		if(this.inView(l1, t1)&&d!=0){
+			if(hlt!=null&&this.inView(hlt.left, hlt.top)&&((hlt.left<l1&&l1<l2)||(hlt.left>l1&&l1>l2))){
+				l1=hlt.left;
+				t1=hlt.top;
+			}else{
+				l1=l2+(l1-l2)*this.r/d;
+				t1=t2+(t1-t2)*this.r/d;
+			}
+		}
+		if(this.inView(l2, t2)&&d!=0){
+			if(hlt!=null&&this.inView(hlt.left, hlt.top)&&((hlt.left<l2&&l2<l1)||(hlt.left>l2&&l2>l1))){
+				l2=hlt.left;
+				t2=hlt.top;
+			}else{
+				l2=l1+(l2-l1)*this.r/d;
+				t2=t1+(t2-t1)*this.r/d;
+			}
+		}
+		return {l1:l1,t1:t1,l2:l2,t2:t2};
+	},
 	mouseLocation: {oldl:0,oldt:0,setOldLt: function(l,t){this.oldl=l;this.oldt=t;}},
 	lineSegments: [],
 	lineLines: [],
+	planes: [],
 	mouseDown: false,
 	onMouseDown: function(l, t){this.mouseLocation.setOldLt(l, t);this.mouseDown=true;},
 	onMouseUp: function(){this.mouseDown=false;},
@@ -406,6 +470,9 @@ var svg={
 	addLineLine: function(l1,t1,l2,t2,id,index,color){
 		this.lineLines[index]=new SvgLine(l1,t1,l2,t2,id,color, 1);
 	},
+	addPlane: function(l1, t1, l2, t2, l3, t3, l4, t4, id, index, color){
+		this.planes[index]=new SvgPlane(l1, t1, l2, t2, l3, t3, l4, t4, id, color);
+	},
 	setR: function(){
 		this.r=Math.sqrt(Math.pow(this.w, 2)+Math.pow(this.h, 2));
 		return this;
@@ -418,7 +485,7 @@ var p2=new Point(-0.5,0.5,0.5);
 var p3=new Point(0.5,-0.5,0.5);
 var p4=new Point(-0.5,-0.5,0.5);
 
-
+PlaneFactory.makePlane(new Point(0,-1,0), new Point(0,1,0), "rgb(0,0,100)");
 LineSegmentFactory.makeLineSegment(p1, p3, "rgb(255,0,0)");
 LineSegmentFactory.makeLineSegment(p2, p4, "rgb(255,0,0)");
 LineLineFactory.makeLineLine(p3,p4,"rgb(0,255,0)");
