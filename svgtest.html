@@ -96,8 +96,26 @@ Line.prototype.intersectWithPlane=function(point, normal){
 	return this.p1.plus(this.baseVector.scale(t));
 };
 var twoD={
+	w: document.getElementById("viewPortSvg").offsetWidth,
+	h: document.getElementById("viewPortSvg").offsetHeight,
+	setCorners: function(){
+		this.c00=this.p(0,0);
+		this.c0h=this.p(0,this.h);
+		this.cwh=this.p(this.w, this.h);
+		this.cw0=this.p(this.w,0);
+		return this;
+	},
+	d: function(lt1, lt2){
+		return this.plt(lt1).minus(this.plt(lt2)).norm();
+	},
 	p: function(x,y){
 		return new Point(x,y,0);
+	},
+	plt: function(lt){
+		return this.p(lt.left, lt.top);
+	},
+	ltp: function(p){
+		return {left:p.x,top:p.y};
 	},
 	intersectLineSegments: function(p1,p2,p3,p4){
 		var a=p2.minus(p1);
@@ -107,13 +125,16 @@ var twoD={
 		var nd=d.norm();
 		if(nd==0){return null;}
 		var i=p1.plus(a.scale(c.cross(b).dot(d)/Math.pow(nd, 2)));
-		return {left:i.x,top:i.y};
+		return this.ltp(i);
+	},
+	isOutOfRectangle: function(lt1, lt2, w, h){
+		//var intersectionWithTop=this.intersectLineSegments(this.c0h, this.cwh,this.p(l1,t1),this.p(l2,t2));
 	},
 	moveToEdge: function(l1, t1, l2, t2, w, h){
-		var toLeft=this.intersectLineSegments(this.p(0,0), this.p(0,h),this.p(l1,t1),this.p(l2,t2));
-		var toRight=this.intersectLineSegments(this.p(w,0), this.p(w,h),this.p(l1,t1),this.p(l2,t2));
-		var toTop=this.intersectLineSegments(this.p(0,h), this.p(w,h),this.p(l1,t1),this.p(l2,t2));
-		var toBottom=this.intersectLineSegments(this.p(0,0), this.p(w,0),this.p(l1,t1),this.p(l2,t2));
+		var toLeft=this.intersectLineSegments(this.c00, this.c0h,this.p(l1,t1),this.p(l2,t2));
+		var toRight=this.intersectLineSegments(this.cw0, this.cwh,this.p(l1,t1),this.p(l2,t2));
+		var toTop=this.intersectLineSegments(this.c0h, this.cwh,this.p(l1,t1),this.p(l2,t2));
+		var toBottom=this.intersectLineSegments(this.c00, this.cw0,this.p(l1,t1),this.p(l2,t2));
 		var r=Math.sqrt(Math.pow(w,2)+Math.pow(h,2));
 		var d=Math.sqrt(Math.pow(l1-l2,2)+Math.pow(t1-t2,2));
 		if(l2>l1){
@@ -122,22 +143,41 @@ var twoD={
 			if(toLeft.left<=l2){return toLeft;}
 		}
 		return {left:l2,top:t2};
-		//return {left: l1+(l2-l1)*(1+r/d), top:t1+(t2-t1)*(1+r/d)};
+	},
+	makeInfinite: function(lt1, lt2, hlt){
+		var d=this.d(lt1, lt2);
+		var nlt1=lt1;
+		var nlt2=lt2;
+		if(d!=0){
+			if(hlt!=null&&((hlt.left<lt1.left&&lt1.left<lt2.left)||(hlt.left>lt1.left&&lt1.left>lt2.left))){
+				nlt1=hlt;
+			}else{
+				var toEdge=this.moveToEdge(lt2.left, lt2.top, lt1.left, lt1.top, this.w, this.h);
+				nlt1=toEdge;
+			}
+			if(hlt!=null&&((hlt.left<lt2.left&&lt2.left<lt1.left)||(hlt.left>lt2.left&&lt2.left>lt1.left))){
+				nlt2=hlt;
+			}else{
+				var toEdge=this.moveToEdge(lt1.left, lt1.top, lt2.left, lt2.top, this.w, this.h);
+				nlt2=toEdge;
+			}
+		}
+		return [nlt1, nlt2];
 	},
 	completeTheSquare: function(lt1, lt2, lt3){
-		var step1=this.p(lt1.left, lt1.top);
-		var step2=this.p(lt2.left, lt2.top);
+		var step1=this.plt(lt1);
+		var step2=this.plt(lt2);
 		var a=step2.minus(step1);
-		var b=this.p(lt3.left, lt3.top).minus(step1);
+		var b=this.plt(lt3).minus(step1);
 		if(a.cross(b).z>0){
 			var step3=step2.plus(new Point(-a.y, a.x, 0));
 		}else{
 			var step3=step2.plus(new Point(a.y, -a.x, 0));
 		}
 		var step4=step3.plus(a.scale(-1));
-		return [{left:step3.x,top:step3.y},{left:step4.x,top:step4.y}];
+		return [this.ltp(step3),this.ltp(step4)];
 	}
-};
+}.setCorners();
 var Rotation=function(around, axis, angle){
 	this.around=around;
 	this.axis=axis;
@@ -332,8 +372,10 @@ Plane.prototype.draw=function(){
 		if(hlt!=null){nonNullHlt[count++]=hlt;}
 		if(count==2){break;}
 	}
-	var ltlt=svg.makeInfinite(nonNullHlt[0].left, nonNullHlt[0].top, nonNullHlt[1].left, nonNullHlt[1].top, null);
-	nonNullHlt=[{left:ltlt.l1,top:ltlt.t1},{left:ltlt.l2,top:ltlt.t2}];
+	//var ltlt=svg.makeInfinite(nonNullHlt[0].left, nonNullHlt[0].top, nonNullHlt[1].left, nonNullHlt[1].top, null);
+	//nonNullHlt=[{left:ltlt.l1,top:ltlt.t1},{left:ltlt.l2,top:ltlt.t2}];
+	var ltlt=twoD.makeInfinite(nonNullHlt[0], nonNullHlt[1], null);
+	nonNullHlt=ltlt;
 	
 	var inPlanelt;
 	if(this.normal.cross(viewPort.normal)==0){inPlanelt=null;}else{
@@ -415,23 +457,19 @@ var drawThings=function(){
 };
 var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color+";stroke-width: "+thickness+";stroke-opacity: 0.5' id='"+id+"'>";
-	this.l1=l1;
-	this.t1=t1;
-	this.l2=l2;
-	this.t2=t2;
-	this.setFromTo=function(f,t){this.l1=f.left;this.t1=f.top;this.l2=t.left;this.t2=t.top;};
+	this.lt1={left:l1,top:t1};
+	this.lt2={left:l2,top:t2},
+	this.setFromTo=function(f,t){this.lt1=f;this.lt2=t;};
 	this.draw=function(){
-		document.getElementById(id).setAttribute("x1", this.l1);
-		document.getElementById(id).setAttribute("y1", this.t1);
-		document.getElementById(id).setAttribute("x2", this.l2);
-		document.getElementById(id).setAttribute("y2", this.t2);
+		document.getElementById(id).setAttribute("x1", this.lt1.left);
+		document.getElementById(id).setAttribute("y1", this.lt1.top);
+		document.getElementById(id).setAttribute("x2", this.lt2.left);
+		document.getElementById(id).setAttribute("y2", this.lt2.top);
 	};
 	this.makeInfinite=function(hlt){
-		var nlt=svg.makeInfinite(this.l1, this.t1, this.l2, this.t2,hlt);
-		this.l1=nlt.l1;
-		this.t1=nlt.t1;
-		this.l2=nlt.l2;
-		this.t2=nlt.t2;
+		var nlt=twoD.makeInfinite(this.lt1, this.lt2,hlt);
+		this.lt1=nlt[0];
+		this.lt2=nlt[1];
 		
 	}
 };
@@ -455,45 +493,15 @@ var SvgPlane=function(l1, t1, l2, t2, l3, t3, l4, t4, id, color){
 		this.l4=lt4.left;
 		this.t4=lt4.top;
 	};
+	this.setHorizonLine=function(lt1, lt2){
+	},
 	this.draw=function(){
 		document.getElementById(id).setAttribute("points", this.l1+","+this.t1+" "+this.l2+","+this.t2+" "+this.l3+","+this.t3+" "+this.l4+","+this.t4);
 	};
 };
 var svg={
-	w: document.getElementById("viewPortSvg").offsetWidth,
-	h: document.getElementById("viewPortSvg").offsetHeight,
-	inView: function(l,t){
-		return l>=0&&l<=this.w&&t>=0&&t<=this.h;
-	},
 	preventDefault: function(evt){
 		evt.preventDefault();
-	},
-	makeInfinite: function(l1, t1, l2, t2,hlt){
-		var d=Math.sqrt(Math.pow(l1-l2, 2), Math.pow(t1-t2, 2));
-		var nl1=l1;
-		var nt1=t1;
-		var nl2=l2;
-		var nt2=t2;
-		if(d!=0){
-			if(hlt!=null&&((hlt.left<l1&&l1<l2)||(hlt.left>l1&&l1>l2))){
-				nl1=hlt.left;
-				nt1=hlt.top;
-			}else{
-				var toEdge=twoD.moveToEdge(l2, t2, l1, t1, this.w, this.h);
-				nl1=toEdge.left;
-				nt1=toEdge.top;
-			}
-			if(hlt!=null&&((hlt.left<l2&&l2<l1)||(hlt.left>l2&&l2>l1))){
-				nl2=hlt.left;
-				nt2=hlt.top;
-			}else{
-				var toEdge=twoD.moveToEdge(l1, t1, l2, t2, this.w, this.h);
-				nl2=toEdge.left;
-				nt2=toEdge.top;
-			}
-			
-		}
-		return {l1:nl1,t1:nt1,l2:nl2,t2:nt2};
 	},
 	mouseLocation: {oldl:0,oldt:0,setOldLt: function(l,t){this.oldl=l;this.oldt=t;}},
 	lineSegments: [],
@@ -559,8 +567,7 @@ var svg={
 		this.r=Math.sqrt(Math.pow(this.w, 2)+Math.pow(this.h, 2));
 		return this;
 	}
-}.setR();
-
+};
 
 var p1=new Point(0.5,0.5,0.5);
 var p2=new Point(-0.5,0.5,0.5);
