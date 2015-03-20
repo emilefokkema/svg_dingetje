@@ -500,17 +500,7 @@ var svg={
 	lineLines: [],
 	planes: [],
 	mouseDown: false,
-	onMouseDown: function(evt){
-		this.preventDefault(evt);
-		var l=evt.clientX;
-		var t=evt.clientY;
-		this.mouseLocation.setOldLt(l, t);this.mouseDown=true;
-	},
-	onMouseUp: function(){this.mouseDown=false;},
-	onMouseMove: function(evt){
-		this.preventDefault(evt);
-		var l=evt.clientX;
-		var t=evt.clientY;
+	onMyMouseMove: function(l,t){
 		if(this.mouseDown){
 			var dl=l-this.mouseLocation.oldl;
 			var dt=t-this.mouseLocation.oldt;
@@ -520,23 +510,40 @@ var svg={
 			this.mouseLocation.setOldLt(l, t);
 		}
 	},
+	onMyMouseDown: function(l, t){
+		this.mouseLocation.setOldLt(l, t);this.mouseDown=true;
+	},
+	onMyMouseUp: function(){this.mouseDown=false;},
+	onMouseDown: function(evt){
+		this.preventDefault(evt);
+		var l=evt.clientX;
+		var t=evt.clientY;
+		this.onMyMouseDown(l,t);
+	},
+	onMouseUp: function(){this.onMyMouseUp();},
+	onMouseMove: function(evt){
+		this.preventDefault(evt);
+		var l=evt.clientX;
+		var t=evt.clientY;
+		this.onMyMouseMove(l,t);
+	},
 	onTouchStart: function(evt){
 		this.preventDefault(evt);
 		var touches=evt.changedTouches;
 		if(touches.length==1){
 			var touch=evt.changedTouches[0];
-			this.onMouseDown(touch.clientX, touch.clientY);
+			this.onMyMouseDown(touch.clientX, touch.clientY);
 		}
 	},
 	onTouchEnd: function(evt){
-		this.onMouseUp();
+		this.onMyMouseUp();
 	},
 	onTouchMove: function(evt){
 		this.preventDefault(evt);
 		var touches=evt.changedTouches;
 		if(touches.length==1){
 			var touch=evt.changedTouches[0];
-			this.onMouseMove(touch.clientX, touch.clientY);
+			this.onMyMouseMove(touch.clientX, touch.clientY);
 		}
 	},
 	addLineSegment: function(l1,t1,l2,t2, id, index, color){
