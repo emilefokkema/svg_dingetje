@@ -86,6 +86,12 @@ Point.prototype.rotateWithOtherRotation=function(r){
 Point.prototype.perpendicularTo=function(p){
 	return Math.abs(this.dot(p))<0.0005;
 };
+Point.prototype.isZero=function(){
+	return this.x==0&&this.y==0&&this.z==0;
+};
+Point.prototype.sameDirection=function(p){
+	return !this.isZero()&&!p.isZero()&&(this.dot(p)==this.norm()*p.norm());
+};
 var Line=function(point1, point2){
 	this.p1=point1;
 	this.baseVector=point2.minus(point1);
@@ -375,16 +381,21 @@ Plane.prototype.draw=function(){
 	horizonDirections[0]=this.normal.cross(viewPort.leftAxis);
 	horizonDirections[1]=this.normal.cross(horizonDirections[0]);
 	horizonDirections[2]=horizonDirections[0].plus(horizonDirections[1]);
-	
+	horizonDirections[3]=this.normal.cross(viewPort.topAxis);
+	horizonDirections[4]=this.normal.cross(horizonDirections[3]);
+	horizonDirections[5]=horizonDirections[3].plus(horizonDirections[4]);
 	var nonNullHlt=[];
 	var count=0;
 	for(var i=0;i<horizonDirections.length;i++){
 		var hlt=viewPort.horizonLt(new Line(this.point, this.point.plus(horizonDirections[i])));
-		if(hlt!=null){nonNullHlt[count++]=hlt;}
+		if(hlt!=null){
+		nonNullHlt[count++]=hlt;
+		}
 		if(count==2){break;}
 	}
 	//var ltlt=svg.makeInfinite(nonNullHlt[0].left, nonNullHlt[0].top, nonNullHlt[1].left, nonNullHlt[1].top, null);
 	//nonNullHlt=[{left:ltlt.l1,top:ltlt.t1},{left:ltlt.l2,top:ltlt.t2}];
+	
 	var ltlt=twoD.makeInfinite(nonNullHlt[0], nonNullHlt[1], null);
 	nonNullHlt=ltlt;
 	
