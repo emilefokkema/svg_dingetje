@@ -99,10 +99,7 @@ var twoD={
 	w: document.getElementById("viewPortSvg").offsetWidth,
 	h: document.getElementById("viewPortSvg").offsetHeight,
 	setCorners: function(){
-		this.c00=this.p(0,0);
-		this.c0h=this.p(0,this.h);
-		this.cwh=this.p(this.w, this.h);
-		this.cw0=this.p(this.w,0);
+		this.corners=[this.p(0,0), this.p(0,this.h), this.p(this.w, this.h), this.p(this.w,0)];
 		return this;
 	},
 	d: function(lt1, lt2){
@@ -127,22 +124,36 @@ var twoD={
 		var i=p1.plus(a.scale(c.cross(b).dot(d)/Math.pow(nd, 2)));
 		return this.ltp(i);
 	},
+	distanceToLine: function(p1, direction, p2){
+		var l=p2.minus(p1);
+		return l.norm()*l.unit().dot(direction.unit());
+	},
+	distanceToEdge: function(lt1, lt2){
+		var direction=this.plt(lt2).minus(this.plt(lt1));
+		var d=0;
+		for(var i=0;i<4;i++){
+			var dd=this.distanceToLine(this.plt(lt2), direction, this.corners[i]);
+			if(dd>=d){d=dd;}
+		}
+		return d;
+	},
 	isOutOfRectangle: function(lt1, lt2, w, h){
 		//var intersectionWithTop=this.intersectLineSegments(this.c0h, this.cwh,this.p(l1,t1),this.p(l2,t2));
 	},
-	moveToEdge: function(l1, t1, l2, t2, w, h){
-		var toLeft=this.intersectLineSegments(this.c00, this.c0h,this.p(l1,t1),this.p(l2,t2));
-		var toRight=this.intersectLineSegments(this.cw0, this.cwh,this.p(l1,t1),this.p(l2,t2));
-		var toTop=this.intersectLineSegments(this.c0h, this.cwh,this.p(l1,t1),this.p(l2,t2));
-		var toBottom=this.intersectLineSegments(this.c00, this.cw0,this.p(l1,t1),this.p(l2,t2));
-		var r=Math.sqrt(Math.pow(w,2)+Math.pow(h,2));
-		var d=Math.sqrt(Math.pow(l1-l2,2)+Math.pow(t1-t2,2));
-		if(l2>l1){
-			if(toRight.left>=l2){return toRight;}
-		}else if(l2<l1){
-			if(toLeft.left<=l2){return toLeft;}
+	moveToEdge: function(lt1, lt2, w, h){
+		var d=this.d(lt1, lt2);
+		var d1=this.distanceToEdge(lt1, lt2);
+		return {left:lt1.left+(lt2.left-lt1.left)*(1+d1/d),top:lt1.top+(lt2.top-lt1.top)*(1+d1/d)};
+		/*var toLeft=this.intersectLineSegments(this.corners[0], this.corners[1],this.plt(lt1),this.plt(lt2));
+		var toRight=this.intersectLineSegments(this.corners[2], this.corners[3],this.plt(lt1),this.plt(lt2));
+		var toTop=this.intersectLineSegments(this.corners[1], this.corners[2],this.plt(lt1),this.plt(lt2));
+		var toBottom=this.intersectLineSegments(this.corners[3], this.corners[0],this.plt(lt1),this.plt(lt2));
+		if(lt2.left>lt1.left){
+			if(toRight.left>=lt2.left){return toRight;}
+		}else if(lt2.left<lt1.left){
+			if(toLeft.left<=lt2.left){return toLeft;}
 		}
-		return {left:l2,top:t2};
+		return lt2;*/
 	},
 	makeInfinite: function(lt1, lt2, hlt){
 		var d=this.d(lt1, lt2);
@@ -152,13 +163,13 @@ var twoD={
 			if(hlt!=null&&((hlt.left<lt1.left&&lt1.left<lt2.left)||(hlt.left>lt1.left&&lt1.left>lt2.left))){
 				nlt1=hlt;
 			}else{
-				var toEdge=this.moveToEdge(lt2.left, lt2.top, lt1.left, lt1.top, this.w, this.h);
+				var toEdge=this.moveToEdge(lt2, lt1, this.w, this.h);
 				nlt1=toEdge;
 			}
 			if(hlt!=null&&((hlt.left<lt2.left&&lt2.left<lt1.left)||(hlt.left>lt2.left&&lt2.left>lt1.left))){
 				nlt2=hlt;
 			}else{
-				var toEdge=this.moveToEdge(lt1.left, lt1.top, lt2.left, lt2.top, this.w, this.h);
+				var toEdge=this.moveToEdge(lt1, lt2, this.w, this.h);
 				nlt2=toEdge;
 			}
 		}
@@ -390,7 +401,6 @@ Plane.prototype.draw=function(){
 	var otherTwo=twoD.completeTheSquare(nonNullHlt[0], nonNullHlt[1], inPlanelt);
 	
 	
-	
 	svg.planes[this.index].setPoints(nonNullHlt[0], nonNullHlt[1], otherTwo[0], otherTwo[1]);
 	//svg.planes[this.index].setPoints(nonNullHlt[0], nonNullHlt[1], {left:nonNullHlt[1].left,top:nonNullHlt[1].top+100},{left:nonNullHlt[0].left,top:nonNullHlt[0].top+100});
 	svg.planes[this.index].draw();
@@ -475,28 +485,21 @@ var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 };
 var SvgPlane=function(l1, t1, l2, t2, l3, t3, l4, t4, id, color){
 	document.getElementById("viewPortSvg").innerHTML+="<polygon points='"+l1+","+t1+" "+l2+","+t2+" "+l3+","+t3+" "+l4+","+t4+"' style='fill: "+color+";fill-opacity: 0.5' id='"+id+"'>";
-	this.l1=l1;
-	this.t1=t1;
-	this.l2=l2;
-	this.t2=t2;
-	this.l3=l3;
-	this.t3=t3;
-	this.l4=l4;
-	this.t4=t4;
+	this.lt1={left:l1,top:t1};
+	this.lt2={left:l2,top:t2};
+	this.lt3={left:l3,top:t3};
+	this.lt4={left:l4,top:t4};
 	this.setPoints=function(lt1, lt2, lt3, lt4){
-		this.l1=lt1.left;
-		this.t1=lt1.top;
-		this.l2=lt2.left;
-		this.t2=lt2.top;
-		this.l3=lt3.left;
-		this.t3=lt3.top;
-		this.l4=lt4.left;
-		this.t4=lt4.top;
+		this.lt1=lt1;
+		this.lt2=lt2;
+		this.lt3=lt3;
+		this.lt4=lt4;
 	};
-	this.setHorizonLine=function(lt1, lt2){
+	this.setHorizonLine=function(lt1, lt2, lt3){
 	},
 	this.draw=function(){
-		document.getElementById(id).setAttribute("points", this.l1+","+this.t1+" "+this.l2+","+this.t2+" "+this.l3+","+this.t3+" "+this.l4+","+this.t4);
+		var t=function(x){return x};
+		document.getElementById(id).setAttribute("points", t(this.lt1.left)+","+t(this.lt1.top)+" "+t(this.lt2.left)+","+t(this.lt2.top)+" "+t(this.lt3.left)+","+t(this.lt3.top)+" "+t(this.lt4.left)+","+t(this.lt4.top));
 	};
 };
 var svg={
@@ -575,6 +578,7 @@ var p3=new Point(0.5,-0.5,0.5);
 var p4=new Point(-0.5,-0.5,0.5);
 
 PlaneFactory.makePlane(new Point(0,-1,0), new Point(0,1,0), "rgb(0,0,100)");
+PlaneFactory.makePlane(new Point(5,0,0), new Point(-1,0,0), "rgb(100,0,0)");
 LineSegmentFactory.makeLineSegment(p1, p3, "rgb(255,0,0)");
 LineSegmentFactory.makeLineSegment(p2, p4, "rgb(255,0,0)");
 LineLineFactory.makeLineLine(p3,p4,"rgb(0,255,0)");
