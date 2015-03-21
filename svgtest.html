@@ -16,6 +16,14 @@
 </div>
 <div style="position:absolute;left:20;top:20;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100)">hoi!</div>
 <script language="JavaScript">
+var Color=function(r,g,b){
+	this.r=r;
+	this.g=g;
+	this.b=b;
+	this.toString=function(){
+		return "rgb("+this.r+", "+this.g+", "+this.b+")";
+	};
+};
 var Point=function(x,y,z){
 	this.x=x;
 	this.y=y;
@@ -412,6 +420,16 @@ var Plane=function(point, normal, id, index){
 	this.point=point;
 	this.normal=normal;
 	this.index=index;
+	if(this.normal.cross(xu).norm()!=0){
+		this.xAxis=this.point.plus(xu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
+	}
+	else if(this.normal.cross(yu).norm()!=0){
+			this.xAxis=this.point.plus(yu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
+	}
+	else if(this.normal.cross(zu).norm()!=0){
+			this.xAxis=this.point.plus(zu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
+	}
+	this.yAxis=this.normal.cross(this.xAxis);
 };
 Plane.prototype.draw=function(){
 	var horizonDirections=[];
@@ -461,9 +479,15 @@ var PlaneFactory={
 		var index=this.currentNumber;
 		for(var i=0;i<this.planes.length;i++){
 			var l=intersectionOfPlanes(point, normal, this.planes[i].point, this.planes[i].normal);
-			if(l!=null){LineLineFactory.makeLineLine(l.p1, l.p1.plus(l.baseVector),"rgb(255,0,0)");}
+			if(l!=null){LineLineFactory.makeLineLine(l.p1, l.p1.plus(l.baseVector),color);}
 		}
-		this.planes[this.currentNumber]=new Plane(point, normal, id, index);
+		var p=new Plane(point, normal, id, index);
+		var n=10;
+		for(var i=-n;i<=n;i++){
+			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(n)), point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(-n)), color);
+			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(-n)).plus(p.yAxis.scale(i)), point.plus(p.xAxis.scale(n)).plus(p.yAxis.scale(i)), color);
+		}
+		this.planes[this.currentNumber]=p;
 		svg.addPlane(0,0,0,0,0,0,0,0,id,index, color);
 		this.currentNumber++;
 	}
@@ -518,7 +542,7 @@ var drawThings=function(){
 	}
 };
 var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
-	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color+";stroke-width: "+thickness+";stroke-opacity: 1.5' id='"+id+"'>";
+	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color.toString()+";stroke-width: "+thickness+";stroke-opacity: 1.5' id='"+id+"'>";
 	this.lt1={left:l1,top:t1};
 	this.lt2={left:l2,top:t2},
 	this.setFromTo=function(f,t){this.lt1=f;this.lt2=t;};
@@ -536,7 +560,7 @@ var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 	}
 };
 var SvgPlane=function(l1, t1, l2, t2, l3, t3, l4, t4, id, color){
-	document.getElementById("viewPortSvg").innerHTML+="<polygon points='"+l1+","+t1+" "+l2+","+t2+" "+l3+","+t3+" "+l4+","+t4+"' style='fill: "+color+";fill-opacity: 0.5' id='"+id+"'>";
+	document.getElementById("viewPortSvg").innerHTML+="<polygon points='"+l1+","+t1+" "+l2+","+t2+" "+l3+","+t3+" "+l4+","+t4+"' style='fill: "+color.toString()+";fill-opacity: 0.4' id='"+id+"'>";
 	this.lt1={left:l1,top:t1};
 	this.lt2={left:l2,top:t2};
 	this.lt3={left:l3,top:t3};
@@ -629,13 +653,13 @@ var p2=new Point(-0.5,0.5,0.5);
 var p3=new Point(0.5,-0.5,0.5);
 var p4=new Point(-0.5,-0.5,0.5);
 
-PlaneFactory.makePlane(new Point(0,-1,0), new Point(0,1,0), "rgb(0,0,100)");
-PlaneFactory.makePlane(new Point(5,0,0), new Point(-1,0,0), "rgb(100,0,0)");
+PlaneFactory.makePlane(new Point(0,-1,0), new Point(0,1,0), new Color(0,0,100));
+PlaneFactory.makePlane(new Point(5,0,0), new Point(-1,0,0), new Color(100,0,0));
 
-LineSegmentFactory.makeLineSegment(p1, p3, "rgb(255,0,0)");
-LineSegmentFactory.makeLineSegment(p2, p4, "rgb(255,0,0)");
-LineLineFactory.makeLineLine(p3,p4,"rgb(0,255,0)");
-LineLineFactory.makeLineLine(p1,p2,"rgb(0,255,0)");
+LineSegmentFactory.makeLineSegment(p1, p3, new Color(255,0,0));
+LineSegmentFactory.makeLineSegment(p2, p4, new Color(255,0,0));
+LineLineFactory.makeLineLine(p3,p4,new Color(0,255,0));
+LineLineFactory.makeLineLine(p1,p2,new Color(0,255,0));
 
 
 
