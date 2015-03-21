@@ -101,6 +101,30 @@ Line.prototype.intersectWithPlane=function(point, normal){
 	var t=-normal.dot(this.p1.minus(point))/normal.dot(this.baseVector);
 	return this.p1.plus(this.baseVector.scale(t));
 };
+var intersectionOfPlanes=function(p1, n1, p2, n2){
+	if(n1.sameDirection(n2)||n1.sameDirection(n2.scale(-1))){return null;}
+	var base=n1.cross(n2);
+	var p1dn1=p1.dot(n1);
+	var p2dn2=p2.dot(n2);
+	var x,y,z;
+	if(base.x!=0){
+		x=0;
+		y=(n2.z*p1dn1-n1.z*p2dn2)/base.x;
+		z=(-n2.y*p1dn1+n1.y*p2dn2)/base.x;
+	}
+	else if(base.y!=0){
+		x=-(n2.z*p1dn1-n1.z*p2dn2)/base.y;
+		y=0;
+		z=-(-n2.x*p1dn1+n1.x*p2dn2)/base.y;
+	}
+	else if(base.z!=0){
+		x=(n2.y*p1dn1-n1.y*p2dn2)/base.z;
+		y=(-n2.x*p1dn1+n1.x*p2dn2)/base.z;
+		z=0;
+	}
+	var basePoint=new Point(x, y, z);
+	return new Line(basePoint, basePoint.plus(base));
+};
 var twoD={
 	w: document.getElementById("viewPortSvg").offsetWidth,
 	h: document.getElementById("viewPortSvg").offsetHeight,
@@ -231,6 +255,12 @@ var viewPort={
 		if(direction.dot(this.normal)<0){direction=direction.scale(-1);}
 		return this.lt(this.viewPoint.plus(direction));
 	},
+	getVisiblePointsOn: function(line){
+		if(line.baseVector.perpendicularTo(this.normal)){return [null, null];}
+		var p1=line.intersectWithPlane(this.leftTop, this.normal);
+		var p2=p1.scale(0.5).plus(line.intersectWithPlane(this.viewPoint, this.normal).scale(0.5));
+		return [this.lt(p1),this.lt(p2)];
+	},
 	lt: function(point){
 		var line=new Line(this.viewPoint, point);
 		if(line.baseVector.perpendicularTo(this.normal)){return null;}
@@ -334,10 +364,16 @@ var LineLine=function(p1, p2, id, index){
 	this.index=index;
 };
 LineLine.prototype.draw=function(){
+	var visible=viewPort.getVisiblePointsOn(this.line);
 	var p1lt=viewPort.lt(this.p1);
+	if(p1lt==null){p1lt=visible[0];}
 	var p2lt=viewPort.lt(this.p2);
+	if(p2lt==null){p2lt=visible[1];}
+	//var p1lt=viewPort.lt(this.p1);
+	//var p2lt=viewPort.lt(this.p2);
 	var hlt=viewPort.horizonLt(this.line);
 	if(p1lt==null&&p2lt==null){
+		svg.lineLines[this.index].setFromTo({left:0,top:0},{left:0,top:0});
 	}else{
 		var i=1;
 		while(p1lt==null&&i<10){
@@ -351,8 +387,9 @@ LineLine.prototype.draw=function(){
 		}
 		svg.lineLines[this.index].setFromTo(p1lt, p2lt);
 		svg.lineLines[this.index].makeInfinite(hlt);
-		svg.lineLines[this.index].draw();
+		
 	}
+	svg.lineLines[this.index].draw();
 };
 var LineLineFactory={
 	lineLines: [],
@@ -422,6 +459,10 @@ var PlaneFactory={
 	makePlane: function(point, normal, color){
 		var id="plane"+this.currentNumber;
 		var index=this.currentNumber;
+		for(var i=0;i<this.planes.length;i++){
+			var l=intersectionOfPlanes(point, normal, this.planes[i].point, this.planes[i].normal);
+			if(l!=null){LineLineFactory.makeLineLine(l.p1, l.p1.plus(l.baseVector),"rgb(255,0,0)");}
+		}
 		this.planes[this.currentNumber]=new Plane(point, normal, id, index);
 		svg.addPlane(0,0,0,0,0,0,0,0,id,index, color);
 		this.currentNumber++;
@@ -477,7 +518,7 @@ var drawThings=function(){
 	}
 };
 var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
-	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color+";stroke-width: "+thickness+";stroke-opacity: 0.5' id='"+id+"'>";
+	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color+";stroke-width: "+thickness+";stroke-opacity: 1.5' id='"+id+"'>";
 	this.lt1={left:l1,top:t1};
 	this.lt2={left:l2,top:t2},
 	this.setFromTo=function(f,t){this.lt1=f;this.lt2=t;};
@@ -590,6 +631,7 @@ var p4=new Point(-0.5,-0.5,0.5);
 
 PlaneFactory.makePlane(new Point(0,-1,0), new Point(0,1,0), "rgb(0,0,100)");
 PlaneFactory.makePlane(new Point(5,0,0), new Point(-1,0,0), "rgb(100,0,0)");
+
 LineSegmentFactory.makeLineSegment(p1, p3, "rgb(255,0,0)");
 LineSegmentFactory.makeLineSegment(p2, p4, "rgb(255,0,0)");
 LineLineFactory.makeLineLine(p3,p4,"rgb(0,255,0)");
