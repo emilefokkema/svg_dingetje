@@ -265,10 +265,26 @@ var viewPort={
 		return this.lt(this.viewPoint.plus(direction));
 	},
 	getVisiblePointsOn: function(line){
-		if(line.baseVector.perpendicularTo(this.normal)){return [null, null];}
+		if(line.baseVector.perpendicularTo(this.normal)){
+			if(line.p1.minus(this.viewPoint).dot(this.normal)>0){return [this.lt(line.p1), this.lt(line.p1.plus(line.baseVector))];}
+			else{return [null, null];}
+		}
 		var p1=line.intersectWithPlane(this.leftTop, this.normal);
 		var p2=p1.scale(0.5).plus(line.intersectWithPlane(this.viewPoint, this.normal).scale(0.5));
 		return [this.lt(p1),this.lt(p2)];
+	},
+	getVisiblePointsBetween: function(p1, p2){
+		var ltp1=this.lt(p1);
+		var ltp2=this.lt(p2);
+		if(ltp1==null&&ltp2==null){return [null, null];}
+		if(ltp1!=null&&ltp2!=null){return [ltp1, ltp2];}
+		var p3=new Line(p1,p2).intersectWithPlane(this.viewPoint, this.normal);
+		if(ltp1==null){
+			return [this.lt(p2.plus(p3).scale(0.5)), ltp2];
+		}
+		if(ltp2==null){
+			return [ltp1, this.lt(p1.plus(p3).scale(0.5))];
+		}
 	},
 	lt: function(point){
 		var line=new Line(this.viewPoint, point);
@@ -329,9 +345,11 @@ var LineSegment=function(from, to, id, index){
 	this.index=index;
 };
 LineSegment.prototype.draw=function(){
-	var flt=viewPort.lt(this.from);
-	var tlt=viewPort.lt(this.to);
+	var visible=viewPort.getVisiblePointsBetween(this.from, this.to);
+	var flt=visible[0];
+	var tlt=visible[1];
 	if(flt==null&&tlt==null){
+		svg.lineSegments[this.index].setFromTo({left:0,top:0},{left:0,top:0});
 	}else{
 		var i=1;
 		while(tlt==null&&i<10){
@@ -378,11 +396,9 @@ LineLine.prototype.draw=function(){
 	if(p1lt==null){p1lt=visible[0];}
 	var p2lt=viewPort.lt(this.p2);
 	if(p2lt==null){p2lt=visible[1];}
-	//var p1lt=viewPort.lt(this.p1);
-	//var p2lt=viewPort.lt(this.p2);
 	var hlt=viewPort.horizonLt(this.line);
 	if(p1lt==null&&p2lt==null){
-		svg.lineLines[this.index].setFromTo({left:0,top:0},{left:0,top:0});
+		svg.lineLines[this.index].none();
 	}else{
 		var i=1;
 		while(p1lt==null&&i<10){
@@ -454,8 +470,6 @@ Plane.prototype.draw=function(){
 		}
 		if(count==2){break;}
 	}
-	//var ltlt=svg.makeInfinite(nonNullHlt[0].left, nonNullHlt[0].top, nonNullHlt[1].left, nonNullHlt[1].top, null);
-	//nonNullHlt=[{left:ltlt.l1,top:ltlt.t1},{left:ltlt.l2,top:ltlt.t2}];
 	
 	var ltlt=twoD.makeInfinite(nonNullHlt[0], nonNullHlt[1], null);
 	nonNullHlt=ltlt;
@@ -563,7 +577,8 @@ var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 		this.lt1=nlt[0];
 		this.lt2=nlt[1];
 		
-	}
+	};
+	this.none=function(){this.setFromTo({left:0,top:0},{left:0,top:0});}
 };
 var SvgPlane=function(l1, t1, l2, t2, l3, t3, l4, t4, id, color){
 	document.getElementById("viewPortSvg").innerHTML+="<polygon points='"+l1+","+t1+" "+l2+","+t2+" "+l3+","+t3+" "+l4+","+t4+"' style='fill: "+color.toString()+";fill-opacity: 0.4' id='"+id+"'>";
