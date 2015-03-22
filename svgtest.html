@@ -138,6 +138,7 @@ var twoD={
 	h: document.getElementById("viewPortSvg").offsetHeight,
 	setCorners: function(){
 		this.corners=[this.p(0,0), this.p(0,this.h), this.p(this.w, this.h), this.p(this.w,0)];
+		this.ltcorners=[{left:0,top:0},{left:0,top:this.h},{left: this.w, top:this.h},{left:this.w,top:0}];
 		return this;
 	},
 	d: function(lt1, lt2){
@@ -432,6 +433,11 @@ var Plane=function(point, normal, id, index){
 	this.yAxis=this.normal.cross(this.xAxis);
 };
 Plane.prototype.draw=function(){
+	if(this.normal.cross(viewPort.normal).norm()==0){
+		if(this.point.minus(viewPort.viewPoint).dot(viewPort.normal)>=0){svg.planes[this.index].full();}else{svg.planes[this.index].none();}
+		svg.planes[this.index].draw();
+		return;
+	}
 	var horizonDirections=[];
 	horizonDirections[0]=this.normal.cross(viewPort.leftAxis);
 	horizonDirections[1]=this.normal.cross(horizonDirections[0]);
@@ -482,7 +488,7 @@ var PlaneFactory={
 			if(l!=null){LineLineFactory.makeLineLine(l.p1, l.p1.plus(l.baseVector),color);}
 		}
 		var p=new Plane(point, normal, id, index);
-		var n=10;
+		var n=20;
 		for(var i=-n;i<=n;i++){
 			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(n)), point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(-n)), color);
 			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(-n)).plus(p.yAxis.scale(i)), point.plus(p.xAxis.scale(n)).plus(p.yAxis.scale(i)), color);
@@ -571,6 +577,10 @@ var SvgPlane=function(l1, t1, l2, t2, l3, t3, l4, t4, id, color){
 		this.lt3=lt3;
 		this.lt4=lt4;
 	};
+	this.full=function(){
+		this.setPoints(twoD.ltcorners[0], twoD.ltcorners[1], twoD.ltcorners[2], twoD.ltcorners[3]);
+	};
+	this.none=function(){this.setPoints({left:0,top:0},{left:0,top:0},{left:0,top:0},{left:0,top:0});};
 	this.setHorizonLine=function(lt1, lt2, lt3){
 	},
 	this.draw=function(){
@@ -652,12 +662,25 @@ var p1=new Point(0.5,0.5,0.5);
 var p2=new Point(-0.5,0.5,0.5);
 var p3=new Point(0.5,-0.5,0.5);
 var p4=new Point(-0.5,-0.5,0.5);
+var p5=new Point(0.5,0.5,-0.5);
+var p6=new Point(-0.5,0.5,-0.5);
+var p7=new Point(0.5,-0.5,-0.5);
+var p8=new Point(-0.5,-0.5,-0.5);
 
 PlaneFactory.makePlane(new Point(0,-1,0), new Point(0,1,0), new Color(0,0,100));
 PlaneFactory.makePlane(new Point(5,0,0), new Point(-1,0,0), new Color(100,0,0));
+PlaneFactory.makePlane(new Point(0,0,5), new Point(0,0,-1), new Color(0,100,0));
 
 LineSegmentFactory.makeLineSegment(p1, p3, new Color(255,0,0));
 LineSegmentFactory.makeLineSegment(p2, p4, new Color(255,0,0));
+LineSegmentFactory.makeLineSegment(p5, p7, new Color(255,0,0));
+LineSegmentFactory.makeLineSegment(p6, p8, new Color(255,0,0));
+
+LineSegmentFactory.makeLineSegment(p1, p5, new Color(255,0,0));
+LineSegmentFactory.makeLineSegment(p3, p7, new Color(255,0,0));
+LineSegmentFactory.makeLineSegment(p2, p6, new Color(255,0,0));
+LineSegmentFactory.makeLineSegment(p4, p8, new Color(255,0,0));
+
 LineLineFactory.makeLineLine(p3,p4,new Color(0,255,0));
 LineLineFactory.makeLineLine(p1,p2,new Color(0,255,0));
 
