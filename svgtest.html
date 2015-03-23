@@ -14,8 +14,18 @@
 <text x="10" y="10" fill="rgb(100,100,100)" id="zAxisLabel">z</text>
 </svg>
 </div>
-<div style="position:absolute;left:20;top:20;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100)">hoi!</div>
+<div style="position:absolute;left:20;top:20;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100)" onClick="show(viewPort.toString())">hoi!</div>
+<div style="position:absolute;left:60;top:60;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100);width:200px;height:200px;display:none" id="xml_text_alert">
+	<table>
+		<tr><td><textarea id="xml_text" rows="6" cols="20" style="resize:none;width:100%"></textarea></td></tr>
+		<tr><td><a style="-webkit-appearance: button;padding:5px;cursor: hand" onClick="document.getElementById('xml_text_alert').style.display='none'">OK</a></td></tr>
+	</table>
+</div>
 <script language="JavaScript">
+var show=function(string){
+	document.getElementById("xml_text_alert").style.display="initial";
+	document.getElementById("xml_text").value=string;
+};
 var Color=function(r,g,b){
 	this.r=r;
 	this.g=g;
@@ -148,7 +158,14 @@ var threeD={
 		};
 		return this;
 	},
-}.makePointFunctions();
+	makeUnits: function(){
+		this.or=new this.Point(0,0,0);
+		this.xu=new this.Point(1,0,0);
+		this.yu=new this.Point(0,1,0);
+		this.zu=new this.Point(0,0,1);
+		return this;
+	}
+}.makePointFunctions().makeUnits();
 var twoD={
 	w: document.getElementById("viewPortSvg").offsetWidth,
 	h: document.getElementById("viewPortSvg").offsetHeight,
@@ -314,16 +331,17 @@ var viewPort={
 		this.topAxis=this.topAxis.scale(r);
 		this.viewPoint=this.viewPoint.scale(r);
 		this.normal=this.leftAxis.cross(this.topAxis);
-	}
+	},
+	toString: function(){
+		var s='<viewport>';
+		s+='<lefttop x="'+this.leftTop.x+'" y="'+this.leftTop.y+'" z="'+this.leftTop.z+'" />';
+		s+='<leftaxis x="'+this.leftAxis.x+'" y="'+this.leftAxis.y+'" z="'+this.leftAxis.z+'" />';
+		s+='<topaxis x="'+this.topAxis.x+'" y="'+this.topAxis.y+'" z="'+this.topAxis.z+'" />';
+		s+='<viewpoint x="'+this.viewPoint.x+'" y="'+this.viewPoint.y+'" z="'+this.viewPoint.z+'" />';
+		s+='</viewport>';
+		return s;
+	},
 }.setSize();
-
-
-var or=new threeD.Point(0,0,0);
-var xu=new threeD.Point(1,0,0);
-var yu=new threeD.Point(0,1,0);
-var zu=new threeD.Point(0,0,1);
-
-
 var LineSegmentFactory={
 	lineSegments: [],
 	currentNumber: 0,
@@ -404,64 +422,64 @@ var LineLineFactory={
 		this.currentNumber++;
 	}
 };
-var Plane=function(point, normal, id, index){
-	this.point=point;
-	this.normal=normal;
-	this.index=index;
-	if(this.normal.cross(xu).norm()!=0){
-		this.xAxis=this.point.plus(xu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
-	}
-	else if(this.normal.cross(yu).norm()!=0){
-			this.xAxis=this.point.plus(yu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
-	}
-	else if(this.normal.cross(zu).norm()!=0){
-			this.xAxis=this.point.plus(zu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
-	}
-	this.yAxis=this.normal.cross(this.xAxis);
-	this.getHorizonLts=function(){
-		var horizonDirections=[];
-		horizonDirections[0]=this.normal.cross(viewPort.leftAxis);
-		horizonDirections[1]=this.normal.cross(horizonDirections[0]);
-		horizonDirections[2]=horizonDirections[0].plus(horizonDirections[1]);
-		horizonDirections[3]=this.normal.cross(viewPort.topAxis);
-		horizonDirections[4]=this.normal.cross(horizonDirections[3]);
-		horizonDirections[5]=horizonDirections[3].plus(horizonDirections[4]);
-		var nonNullHlt=[];
-		var count=0;
-		for(var i=0;i<horizonDirections.length;i++){
-			var hlt=viewPort.horizonLt(new threeD.Line(this.point, this.point.plus(horizonDirections[i])));
-			if(hlt!=null){
-				nonNullHlt[count++]=hlt;
-			}
-			if(count==2){break;}
-		}
-		return nonNullHlt;
-	};
-	this.getInPlaneLt=function(){
-		var lt;
-		var inPlane1=new threeD.Line(viewPort.leftTop, viewPort.leftTop.plus(viewPort.leftAxis)).intersectWithPlane(this.point, this.normal);
-		var inPlane2=new threeD.Line(viewPort.leftTop, viewPort.leftTop.plus(viewPort.topAxis)).intersectWithPlane(this.point, this.normal);
-		if(inPlane1==null){
-			lt=viewPort.lt(inPlane2);
-		}else{
-			lt=viewPort.lt(inPlane1);
-		}
-		return lt;
-	};
-	this.draw=function(){
-		if(this.normal.cross(viewPort.normal).norm()==0){
-			if(this.point.minus(viewPort.viewPoint).dot(viewPort.normal)>=0){svg.planes[this.index].full();}else{svg.planes[this.index].none();}
-			svg.planes[this.index].draw();
-			return;
-		}
-		var nonNullHlt=this.getHorizonLts();
-		svg.planes[this.index].setHorizonPoints(nonNullHlt[0], nonNullHlt[1], this.getInPlaneLt());
-		svg.planes[this.index].draw();
-	};
-};
 var PlaneFactory={
 	planes: [],
 	currentNumber: 0,
+	Plane: function(point, normal, id, index){
+		this.point=point;
+		this.normal=normal;
+		this.index=index;
+		if(this.normal.cross(threeD.xu).norm()!=0){
+			this.xAxis=this.point.plus(threeD.xu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
+		}
+		else if(this.normal.cross(threeD.yu).norm()!=0){
+			this.xAxis=this.point.plus(threeD.yu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
+		}
+		else if(this.normal.cross(threeD.zu).norm()!=0){
+			this.xAxis=this.point.plus(threeD.zu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
+		}
+		this.yAxis=this.normal.cross(this.xAxis);
+		this.getHorizonLts=function(){
+			var horizonDirections=[];
+			horizonDirections[0]=this.normal.cross(viewPort.leftAxis);
+			horizonDirections[1]=this.normal.cross(horizonDirections[0]);
+			horizonDirections[2]=horizonDirections[0].plus(horizonDirections[1]);
+			horizonDirections[3]=this.normal.cross(viewPort.topAxis);
+			horizonDirections[4]=this.normal.cross(horizonDirections[3]);
+			horizonDirections[5]=horizonDirections[3].plus(horizonDirections[4]);
+			var nonNullHlt=[];
+			var count=0;
+			for(var i=0;i<horizonDirections.length;i++){
+				var hlt=viewPort.horizonLt(new threeD.Line(this.point, this.point.plus(horizonDirections[i])));
+				if(hlt!=null){
+					nonNullHlt[count++]=hlt;
+				}
+				if(count==2){break;}
+			}
+			return nonNullHlt;
+		};
+		this.getInPlaneLt=function(){
+			var lt;
+			var inPlane1=new threeD.Line(viewPort.leftTop, viewPort.leftTop.plus(viewPort.leftAxis)).intersectWithPlane(this.point, this.normal);
+			var inPlane2=new threeD.Line(viewPort.leftTop, viewPort.leftTop.plus(viewPort.topAxis)).intersectWithPlane(this.point, this.normal);
+			if(inPlane1==null){
+				lt=viewPort.lt(inPlane2);
+			}else{
+				lt=viewPort.lt(inPlane1);
+			}
+			return lt;
+		};
+		this.draw=function(){
+			if(this.normal.cross(viewPort.normal).norm()==0){
+				if(this.point.minus(viewPort.viewPoint).dot(viewPort.normal)>=0){svg.planes[this.index].full();}else{svg.planes[this.index].none();}
+				svg.planes[this.index].draw();
+				return;
+			}
+			var nonNullHlt=this.getHorizonLts();
+			svg.planes[this.index].setHorizonPoints(nonNullHlt[0], nonNullHlt[1], this.getInPlaneLt());
+			svg.planes[this.index].draw();
+		};
+	},
 	makePlane: function(point, normal, color){
 		var id="plane"+this.currentNumber;
 		var index=this.currentNumber;
@@ -469,7 +487,7 @@ var PlaneFactory={
 			var l=threeD.intersectionOfPlanes(point, normal, this.planes[i].point, this.planes[i].normal);
 			if(l!=null){LineLineFactory.makeLineLine(l.p1, l.p1.plus(l.baseVector),color, 2);}
 		}
-		var p=new Plane(point, normal, id, index);
+		var p=new this.Plane(point, normal, id, index);
 		var n=20;
 		for(var i=-n;i<=n;i++){
 			//LineSegmentFactory.makeLineSegment(point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(n)), point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(-n)), color);
@@ -483,10 +501,10 @@ var PlaneFactory={
 	}
 };
 var drawAxes=function(){
-	var orlt=viewPort.lt(or);
-	var xult=viewPort.lt(xu);
-	var yult=viewPort.lt(yu);
-	var zult=viewPort.lt(zu);
+	var orlt=viewPort.lt(threeD.or);
+	var xult=viewPort.lt(threeD.xu);
+	var yult=viewPort.lt(threeD.yu);
+	var zult=viewPort.lt(threeD.zu);
 
 	document.getElementById("xAxis").setAttribute("x1", orlt.left);
 	document.getElementById("xAxis").setAttribute("y1", orlt.top);
@@ -531,8 +549,16 @@ var drawThings=function(){
 		planes[i].draw();
 	}
 };
-var SvgSphere=function(){
-	document.getElementById("viewPortSvg").innerHTML+="<ellipse cx='' cy='' >";
+var SvgSphere=function(id, color){
+	document.getElementById("viewPortSvg").innerHTML+="<polygon points='0,0 0,0 0,0' style='fill: "+color.toString()+"' id='"+id+"'>";
+	this.setPoints=function(list){
+		this.points=list;
+	};
+	this.draw=function(){
+		var s="";
+		for(lt in this.points){s+=lt.left+","+lt.top+" ";}
+		document.getElementById().setAttribute("points", s);
+	};
 };
 var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color.toString()+";stroke-width: "+thickness+";stroke-opacity: 1.5' id='"+id+"'>";
