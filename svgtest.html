@@ -24,115 +24,131 @@ var Color=function(r,g,b){
 		return "rgb("+this.r+", "+this.g+", "+this.b+")";
 	};
 };
-var Point=function(x,y,z){
-	this.x=x;
-	this.y=y;
-	this.z=z;
-};
-Point.prototype.plus=function(p){
-	return new Point(this.x+p.x,this.y+p.y,this.z+p.z);
-};
-Point.prototype.scale=function(r){
-	return new Point(this.x*r, this.y*r, this.z*r);
-};
-Point.prototype.minus=function(p){
-	return this.plus(p.scale(-1));
-};
-Point.prototype.dot=function(p){
-	return this.x*p.x+this.y*p.y+this.z*p.z;
-};
-Point.prototype.cross=function(p){
-	return new Point(this.y*p.z-this.z*p.y,this.z*p.x-this.x*p.z,this.x*p.y-this.y*p.x);
-};
-Point.prototype.norm=function(){
-	return Math.sqrt(Math.pow(this.x, 2)+Math.pow(this.y, 2)+Math.pow(this.z, 2));
-};
-Point.prototype.unit=function(){
-	if(this.norm()==0){return this;}
-	return this.scale(1/this.norm());
-};
-Point.prototype.project=function(p){
-	var u=this.unit();
-	return u.scale(u.dot(p));
-};
-Point.prototype.projectOnPlane=function(point, normal){
-	return point.plus(this.minus(point).minus(normal.project(this.minus(point))));
-};
-Point.prototype.rotate=function(around, axis, angle){
-	var op=this.minus(around);
-	if(axis==0){
-		var npy=op.y*Math.cos(angle)-op.z*Math.sin(angle);
-		var npz=op.z*Math.cos(angle)+op.y*Math.sin(angle);
-		return around.plus(new Point(op.x, npy, npz));
-	}
-	if(axis==1){
-		var npz=op.z*Math.cos(angle)-op.x*Math.sin(angle);
-		var npx=op.x*Math.cos(angle)+op.z*Math.sin(angle);
-		return around.plus(new Point(npx, op.y, npz));
-	}
-	if(axis==2){
-		var npx=op.x*Math.cos(angle)-op.y*Math.sin(angle);
-		var npy=op.y*Math.cos(angle)+op.x*Math.sin(angle);
-		return around.plus(new Point(npx, npy, op.z));
-	}
-};
-Point.prototype.rotateWithRotation=function(r){
-	return this.rotate(r.around, r.axis, r.angle);
-};
-Point.prototype.rotateWithOtherRotation=function(r){
-	var op=this.minus(r.around);
-	var opUnchanged=r.direction.project(op);
-	op=op.minus(opUnchanged);
-	if(op.norm()>0){
-		var yAxis=r.direction.cross(op);
-		op=op.scale(Math.cos(r.angle)).plus(yAxis.unit().scale(op.norm()*Math.sin(r.angle)));
-		return r.around.plus(opUnchanged).plus(op);
-	}else{
+
+var threeD={
+	Point: function(x, y, z){
+		this.x=x;
+		this.y=y;
+		this.z=z;
+	},
+	Line: function(point1, point2){
+		this.p1=point1;
+		this.baseVector=point2.minus(point1);
+	},
+	Rotation: function(around, axis, angle){
+		this.around=around;
+		this.axis=axis;
+		this.angle=angle;
+	},
+	OtherRotation: function(around, axisDirection, angle){
+		this.around=around;
+		this.direction=axisDirection;
+		this.angle=angle;
+	},
+	intersectionOfPlanes: function(p1, n1, p2, n2){
+		if(n1.sameDirection(n2)||n1.sameDirection(n2.scale(-1))){return null;}
+		var base=n1.cross(n2);
+		var p1dn1=p1.dot(n1);
+		var p2dn2=p2.dot(n2);
+		var x,y,z;
+		if(base.x!=0){
+			x=0;
+			y=(n2.z*p1dn1-n1.z*p2dn2)/base.x;
+			z=(-n2.y*p1dn1+n1.y*p2dn2)/base.x;
+		}
+		else if(base.y!=0){
+			x=-(n2.z*p1dn1-n1.z*p2dn2)/base.y;
+			y=0;
+			z=-(-n2.x*p1dn1+n1.x*p2dn2)/base.y;
+		}
+		else if(base.z!=0){
+			x=(n2.y*p1dn1-n1.y*p2dn2)/base.z;
+			y=(-n2.x*p1dn1+n1.x*p2dn2)/base.z;
+			z=0;
+		}
+		var basePoint=new threeD.Point(x, y, z);
+		return new this.Line(basePoint, basePoint.plus(base));
+	},
+	makePointFunctions: function(){
+		this.Point.prototype.plus=function(p){
+			return new threeD.Point(this.x+p.x,this.y+p.y,this.z+p.z);
+		};
+		this.Point.prototype.scale=function(r){
+			return new threeD.Point(this.x*r, this.y*r, this.z*r);
+		};
+		this.Point.prototype.minus=function(p){
+			return this.plus(p.scale(-1));
+		};
+		this.Point.prototype.dot=function(p){
+			return this.x*p.x+this.y*p.y+this.z*p.z;
+		};
+		this.Point.prototype.cross=function(p){
+			return new threeD.Point(this.y*p.z-this.z*p.y,this.z*p.x-this.x*p.z,this.x*p.y-this.y*p.x);
+		};
+		this.Point.prototype.norm=function(){
+			return Math.sqrt(Math.pow(this.x, 2)+Math.pow(this.y, 2)+Math.pow(this.z, 2));
+		};
+		this.Point.prototype.unit=function(){
+			if(this.norm()==0){return this;}
+			return this.scale(1/this.norm());
+		};
+		this.Point.prototype.project=function(p){
+			var u=this.unit();
+			return u.scale(u.dot(p));
+		};
+		this.Point.prototype.projectOnPlane=function(point, normal){
+			return point.plus(this.minus(point).minus(normal.project(this.minus(point))));
+		};
+		this.Point.prototype.rotate=function(around, axis, angle){
+			var op=this.minus(around);
+				if(axis==0){
+					var npy=op.y*Math.cos(angle)-op.z*Math.sin(angle);
+					var npz=op.z*Math.cos(angle)+op.y*Math.sin(angle);
+					return around.plus(new threeD.Point(op.x, npy, npz));
+				}
+				if(axis==1){
+					var npz=op.z*Math.cos(angle)-op.x*Math.sin(angle);
+					var npx=op.x*Math.cos(angle)+op.z*Math.sin(angle);
+					return around.plus(new threeD.Point(npx, op.y, npz));
+				}
+				if(axis==2){
+					var npx=op.x*Math.cos(angle)-op.y*Math.sin(angle);
+					var npy=op.y*Math.cos(angle)+op.x*Math.sin(angle);
+					return around.plus(new threeD.Point(npx, npy, op.z));
+				}
+		};
+		this.Point.prototype.rotateWithRotation=function(r){
+			return this.rotate(r.around, r.axis, r.angle);
+		};
+		this.Point.prototype.rotateWithOtherRotation=function(r){
+			var op=this.minus(r.around);
+			var opUnchanged=r.direction.project(op);
+			op=op.minus(opUnchanged);
+			if(op.norm()>0){
+				var yAxis=r.direction.cross(op);
+				op=op.scale(Math.cos(r.angle)).plus(yAxis.unit().scale(op.norm()*Math.sin(r.angle)));
+				return r.around.plus(opUnchanged).plus(op);
+			}else{
+				return this;
+			}
+		};
+		this.Point.prototype.perpendicularTo=function(p){
+			return Math.abs(this.dot(p))<0.0005;
+		};
+		this.Point.prototype.isZero=function(){
+			return this.x==0&&this.y==0&&this.z==0;
+		};
+		this.Point.prototype.sameDirection=function(p){
+			return !this.isZero()&&!p.isZero()&&(this.dot(p)==this.norm()*p.norm());
+		};
+		this.Line.prototype.intersectWithPlane=function(point, normal){
+			if(this.baseVector.perpendicularTo(normal)){return null;}
+			var t=-normal.dot(this.p1.minus(point))/normal.dot(this.baseVector);
+			return this.p1.plus(this.baseVector.scale(t));
+		};
 		return this;
-	}
-};
-Point.prototype.perpendicularTo=function(p){
-	return Math.abs(this.dot(p))<0.0005;
-};
-Point.prototype.isZero=function(){
-	return this.x==0&&this.y==0&&this.z==0;
-};
-Point.prototype.sameDirection=function(p){
-	return !this.isZero()&&!p.isZero()&&(this.dot(p)==this.norm()*p.norm());
-};
-var Line=function(point1, point2){
-	this.p1=point1;
-	this.baseVector=point2.minus(point1);
-};
-Line.prototype.intersectWithPlane=function(point, normal){
-	if(this.baseVector.perpendicularTo(normal)){return null;}
-	var t=-normal.dot(this.p1.minus(point))/normal.dot(this.baseVector);
-	return this.p1.plus(this.baseVector.scale(t));
-};
-var intersectionOfPlanes=function(p1, n1, p2, n2){
-	if(n1.sameDirection(n2)||n1.sameDirection(n2.scale(-1))){return null;}
-	var base=n1.cross(n2);
-	var p1dn1=p1.dot(n1);
-	var p2dn2=p2.dot(n2);
-	var x,y,z;
-	if(base.x!=0){
-		x=0;
-		y=(n2.z*p1dn1-n1.z*p2dn2)/base.x;
-		z=(-n2.y*p1dn1+n1.y*p2dn2)/base.x;
-	}
-	else if(base.y!=0){
-		x=-(n2.z*p1dn1-n1.z*p2dn2)/base.y;
-		y=0;
-		z=-(-n2.x*p1dn1+n1.x*p2dn2)/base.y;
-	}
-	else if(base.z!=0){
-		x=(n2.y*p1dn1-n1.y*p2dn2)/base.z;
-		y=(-n2.x*p1dn1+n1.x*p2dn2)/base.z;
-		z=0;
-	}
-	var basePoint=new Point(x, y, z);
-	return new Line(basePoint, basePoint.plus(base));
-};
+	},
+}.makePointFunctions();
 var twoD={
 	w: document.getElementById("viewPortSvg").offsetWidth,
 	h: document.getElementById("viewPortSvg").offsetHeight,
@@ -145,7 +161,7 @@ var twoD={
 		return this.plt(lt1).minus(this.plt(lt2)).norm();
 	},
 	p: function(x,y){
-		return new Point(x,y,0);
+		return new threeD.Point(x,y,0);
 	},
 	plt: function(lt){
 		return this.p(lt.left, lt.top);
@@ -176,23 +192,10 @@ var twoD={
 		}
 		return d;
 	},
-	isOutOfRectangle: function(lt1, lt2, w, h){
-		//var intersectionWithTop=this.intersectLineSegments(this.c0h, this.cwh,this.p(l1,t1),this.p(l2,t2));
-	},
 	moveToEdge: function(lt1, lt2, w, h){
 		var d=this.d(lt1, lt2);
 		var d1=this.distanceToEdge(lt1, lt2);
 		return {left:lt1.left+(lt2.left-lt1.left)*(1+d1/d),top:lt1.top+(lt2.top-lt1.top)*(1+d1/d)};
-		/*var toLeft=this.intersectLineSegments(this.corners[0], this.corners[1],this.plt(lt1),this.plt(lt2));
-		var toRight=this.intersectLineSegments(this.corners[2], this.corners[3],this.plt(lt1),this.plt(lt2));
-		var toTop=this.intersectLineSegments(this.corners[1], this.corners[2],this.plt(lt1),this.plt(lt2));
-		var toBottom=this.intersectLineSegments(this.corners[3], this.corners[0],this.plt(lt1),this.plt(lt2));
-		if(lt2.left>lt1.left){
-			if(toRight.left>=lt2.left){return toRight;}
-		}else if(lt2.left<lt1.left){
-			if(toLeft.left<=lt2.left){return toLeft;}
-		}
-		return lt2;*/
 	},
 	makeInfinite: function(lt1, lt2, hlt){
 		var d=this.d(lt1, lt2);
@@ -220,36 +223,26 @@ var twoD={
 		var a=step2.minus(step1);
 		var b=this.plt(lt3).minus(step1);
 		if(a.cross(b).z>0){
-			var step3=step2.plus(new Point(-a.y, a.x, 0));
+			var step3=step2.plus(new threeD.Point(-a.y, a.x, 0));
 		}else{
-			var step3=step2.plus(new Point(a.y, -a.x, 0));
+			var step3=step2.plus(new threeD.Point(a.y, -a.x, 0));
 		}
 		var step4=step3.plus(a.scale(-1));
 		return [this.ltp(step3),this.ltp(step4)];
 	}
 }.setCorners();
-var Rotation=function(around, axis, angle){
-	this.around=around;
-	this.axis=axis;
-	this.angle=angle;
-};
-var OtherRotation=function(around, axisDirection, angle){
-	this.around=around;
-	this.direction=axisDirection;
-	this.angle=angle;
-};
 var viewPort={
 	w:0,
 	h:0,
-	leftTop: new Point(1, 1, -1),
-	leftAxis: new Point(-1,0,0),
-	topAxis: new Point(0,-1,0),
-	viewPoint: new Point(0,0,-3),
+	leftTop: new threeD.Point(1, 1, -1),
+	leftAxis: new threeD.Point(-1,0,0),
+	topAxis: new threeD.Point(0,-1,0),
+	viewPoint: new threeD.Point(0,0,-3),
 	setSize: function(){
 		this.w=document.getElementById("viewPort").offsetWidth;
 		this.h=document.getElementById("viewPort").offsetHeight;
 		var r=this.h/this.w;
-		this.leftTop=new Point(0.5, 0.5*r,-1);
+		this.leftTop=new threeD.Point(0.5, 0.5*r,-1);
 		this.topAxis=this.topAxis.scale(r);
 		this.normal=this.leftAxis.cross(this.topAxis);
 		return this;
@@ -278,7 +271,7 @@ var viewPort={
 		var ltp2=this.lt(p2);
 		if(ltp1==null&&ltp2==null){return [null, null];}
 		if(ltp1!=null&&ltp2!=null){return [ltp1, ltp2];}
-		var p3=new Line(p1,p2).intersectWithPlane(this.viewPoint, this.normal);
+		var p3=new threeD.Line(p1,p2).intersectWithPlane(this.viewPoint, this.normal);
 		if(ltp1==null){
 			return [this.lt(p2.plus(p3).scale(0.5)), ltp2];
 		}
@@ -287,7 +280,7 @@ var viewPort={
 		}
 	},
 	lt: function(point){
-		var line=new Line(this.viewPoint, point);
+		var line=new threeD.Line(this.viewPoint, point);
 		if(line.baseVector.perpendicularTo(this.normal)){return null;}
 		var t=-this.normal.dot(this.viewPoint.minus(this.leftTop))/this.normal.dot(line.baseVector);
 		if(t<0){return null;}
@@ -306,23 +299,14 @@ var viewPort={
 		this.viewPoint=this.viewPoint.rotateWithOtherRotation(r);
 		this.normal=this.leftAxis.cross(this.topAxis);
 	},
-	rotateWithRotation: function(r){
-		this.leftAxis=this.leftTop.plus(this.leftAxis);
-		this.topAxis=this.leftTop.plus(this.topAxis);
-		this.leftTop=this.leftTop.rotateWithRotation(r);
-		this.leftAxis=this.leftAxis.rotateWithRotation(r).minus(this.leftTop);
-		this.topAxis=this.topAxis.rotateWithRotation(r).minus(this.leftTop);
-		this.viewPoint=this.viewPoint.rotateWithRotation(r);
-		this.normal=this.leftAxis.cross(this.topAxis);
-	},
 	rotX: function(angle){
-		this.rotateWithOtherRotation(new OtherRotation(new Point(0,0,0), this.leftAxis, angle));
+		this.rotateWithOtherRotation(new threeD.OtherRotation(new threeD.Point(0,0,0), this.leftAxis, angle));
 	},
 	rotY: function(angle){
-		this.rotateWithOtherRotation(new OtherRotation(new Point(0,0,0), this.topAxis, angle));
+		this.rotateWithOtherRotation(new threeD.OtherRotation(new threeD.Point(0,0,0), this.topAxis, angle));
 	},
 	rotZ: function(angle){
-		this.rotateWithRotation(new Rotation(new Point(0,0,0), 2, angle));
+		this.rotateWithRotation(new threeD.OtherRotation(new threeD.Point(0,0,0), this.leftAxis.cross(this.topAxis), angle));
 	},
 	scale: function(r){
 		this.leftTop=this.leftTop.scale(r);
@@ -334,102 +318,89 @@ var viewPort={
 }.setSize();
 
 
-var or=new Point(0,0,0);
-var xu=new Point(1,0,0);
-var yu=new Point(0,1,0);
-var zu=new Point(0,0,1);
+var or=new threeD.Point(0,0,0);
+var xu=new threeD.Point(1,0,0);
+var yu=new threeD.Point(0,1,0);
+var zu=new threeD.Point(0,0,1);
 
-var LineSegment=function(from, to, id, index){
-	this.from=from;
-	this.to=to;
-	this.index=index;
-};
-LineSegment.prototype.draw=function(){
-	var visible=viewPort.getVisiblePointsBetween(this.from, this.to);
-	var flt=visible[0];
-	var tlt=visible[1];
-	if(flt==null&&tlt==null){
-		svg.lineSegments[this.index].setFromTo({left:0,top:0},{left:0,top:0});
-	}else{
-		var i=1;
-		while(tlt==null&&i<10){
-			tlt=viewPort.lt(this.from.scale(i/10).plus(this.to.scale((10-i)/10)));
-			i++;
-		}
-		i=1;
-		while(flt==null&&i<10){
-			flt=viewPort.lt(this.to.scale(i/10).plus(this.from.scale((10-i)/10)));
-			i++;
-		}
-		svg.lineSegments[this.index].setFromTo(flt, tlt);
-		svg.lineSegments[this.index].draw();
-	}
-	
-};
+
 var LineSegmentFactory={
 	lineSegments: [],
 	currentNumber: 0,
+	LineSegment: function(from, to, id, index){
+		this.from=from;
+		this.to=to;
+		this.index=index;
+		this.draw=function(){
+			var visible=viewPort.getVisiblePointsBetween(this.from, this.to);
+			var flt=visible[0];
+			var tlt=visible[1];
+			if(flt==null&&tlt==null){
+				this.svg.none();
+			}else{
+				this.svg.setFromTo(flt, tlt);
+				this.svg.draw();
+			}
+		};
+		this.setSvg=function(index){
+			this.svg=svg.lineSegments[index];
+			return this;
+		};
+	},
 	makeLineSegment: function(from, to, color){
 		var id="lineSegment"+this.currentNumber;
 		var index=this.currentNumber;
 		var flt=viewPort.lt(from);
 		var tlt=viewPort.lt(to);
-		this.lineSegments[this.currentNumber]=new LineSegment(from, to, id, index);
+		
 		if(flt!=null&&tlt!=null){
 			svg.addLineSegment(flt.left, flt.top, tlt.left, tlt.top, id, index, color);
 		}else{
 			svg.addLineSegment(0,0,0,0, id, index, color);
 		}
-		
+		this.lineSegments[this.currentNumber]=new this.LineSegment(from, to, id, index).setSvg(this.currentNumber);
 		this.currentNumber++;
 	}
-};
-var LineLine=function(p1, p2, id, index){
-	this.line=new Line(p1,p2);
-	this.p1=p1;
-	this.p2=p2;
-	this.index=index;
-};
-LineLine.prototype.draw=function(){
-	var visible=viewPort.getVisiblePointsOn(this.line);
-	var p1lt=viewPort.lt(this.p1);
-	if(p1lt==null){p1lt=visible[0];}
-	var p2lt=viewPort.lt(this.p2);
-	if(p2lt==null){p2lt=visible[1];}
-	var hlt=viewPort.horizonLt(this.line);
-	if(p1lt==null&&p2lt==null){
-		svg.lineLines[this.index].none();
-	}else{
-		var i=1;
-		while(p1lt==null&&i<10){
-			p1lt=viewPort.lt(p2.scale(i/10).plus(p1.scale((10-i)/10)));
-			i++;
-		}
-		i=1;
-		while(p2lt==null&&i<10){
-			p2lt=viewPort.lt(p1.scale(i/10).plus(p2.scale((10-i)/10)));
-			i++;
-		}
-		svg.lineLines[this.index].setFromTo(p1lt, p2lt);
-		svg.lineLines[this.index].makeInfinite(hlt);
-		
-	}
-	svg.lineLines[this.index].draw();
 };
 var LineLineFactory={
 	lineLines: [],
 	currentNumber: 0,
-	makeLineLine: function(p1, p2, color){
+	LineLine: function(p1, p2, id, index){
+		this.line=new threeD.Line(p1,p2);
+		this.p1=p1;
+		this.p2=p2;
+		this.index=index;
+		this.draw=function(){
+			var visible=viewPort.getVisiblePointsOn(this.line);
+			var p1lt=viewPort.lt(this.p1);
+			if(p1lt==null){p1lt=visible[0];}
+			var p2lt=viewPort.lt(this.p2);
+			if(p2lt==null){p2lt=visible[1];}
+			var hlt=viewPort.horizonLt(this.line);
+			if(p1lt==null&&p2lt==null){
+				this.svg.none();
+			}else{
+				this.svg.setFromTo(p1lt, p2lt);
+				this.svg.makeInfinite(hlt);
+			}
+			this.svg.draw();
+		};
+		this.setSvg=function(index){
+			this.svg=svg.lineLines[index];
+			return this;
+		};
+	},
+	makeLineLine: function(p1, p2, color, thickness){
 		var id="lineLine"+this.currentNumber;
 		var index=this.currentNumber;
-		this.lineLines[this.currentNumber]=new LineLine(p1,p2,id,index);
 		var p1lt=viewPort.lt(p1);
 		var p2lt=viewPort.lt(p2);
 		if(p1lt!=null&&p2lt!=null){
-			svg.addLineLine(p1lt.left, p1lt.top, p2lt.left, p2lt.top, id, index, color);
+			svg.addLineLine(p1lt.left, p1lt.top, p2lt.left, p2lt.top, id, index, color, thickness);
 		}else{
-			svg.addLineLine(0,0,0,0, id, index, color);
+			svg.addLineLine(0,0,0,0, id, index, color, thickness);
 		}
+		this.lineLines[this.currentNumber]=new this.LineLine(p1,p2,id,index).setSvg(this.currentNumber);
 		this.currentNumber++;
 	}
 };
@@ -447,49 +418,46 @@ var Plane=function(point, normal, id, index){
 			this.xAxis=this.point.plus(zu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
 	}
 	this.yAxis=this.normal.cross(this.xAxis);
-};
-Plane.prototype.draw=function(){
-	if(this.normal.cross(viewPort.normal).norm()==0){
-		if(this.point.minus(viewPort.viewPoint).dot(viewPort.normal)>=0){svg.planes[this.index].full();}else{svg.planes[this.index].none();}
-		svg.planes[this.index].draw();
-		return;
-	}
-	var horizonDirections=[];
-	horizonDirections[0]=this.normal.cross(viewPort.leftAxis);
-	horizonDirections[1]=this.normal.cross(horizonDirections[0]);
-	horizonDirections[2]=horizonDirections[0].plus(horizonDirections[1]);
-	horizonDirections[3]=this.normal.cross(viewPort.topAxis);
-	horizonDirections[4]=this.normal.cross(horizonDirections[3]);
-	horizonDirections[5]=horizonDirections[3].plus(horizonDirections[4]);
-	var nonNullHlt=[];
-	var count=0;
-	for(var i=0;i<horizonDirections.length;i++){
-		var hlt=viewPort.horizonLt(new Line(this.point, this.point.plus(horizonDirections[i])));
-		if(hlt!=null){
-		nonNullHlt[count++]=hlt;
+	this.getHorizonLts=function(){
+		var horizonDirections=[];
+		horizonDirections[0]=this.normal.cross(viewPort.leftAxis);
+		horizonDirections[1]=this.normal.cross(horizonDirections[0]);
+		horizonDirections[2]=horizonDirections[0].plus(horizonDirections[1]);
+		horizonDirections[3]=this.normal.cross(viewPort.topAxis);
+		horizonDirections[4]=this.normal.cross(horizonDirections[3]);
+		horizonDirections[5]=horizonDirections[3].plus(horizonDirections[4]);
+		var nonNullHlt=[];
+		var count=0;
+		for(var i=0;i<horizonDirections.length;i++){
+			var hlt=viewPort.horizonLt(new threeD.Line(this.point, this.point.plus(horizonDirections[i])));
+			if(hlt!=null){
+				nonNullHlt[count++]=hlt;
+			}
+			if(count==2){break;}
 		}
-		if(count==2){break;}
-	}
-	
-	var ltlt=twoD.makeInfinite(nonNullHlt[0], nonNullHlt[1], null);
-	nonNullHlt=ltlt;
-	
-	var inPlanelt;
-	if(this.normal.cross(viewPort.normal)==0){inPlanelt=null;}else{
-		var inPlane1=new Line(viewPort.leftTop, viewPort.leftTop.plus(viewPort.leftAxis)).intersectWithPlane(this.point, this.normal);
-		var inPlane2=new Line(viewPort.leftTop, viewPort.leftTop.plus(viewPort.topAxis)).intersectWithPlane(this.point, this.normal);
+		return nonNullHlt;
+	};
+	this.getInPlaneLt=function(){
+		var lt;
+		var inPlane1=new threeD.Line(viewPort.leftTop, viewPort.leftTop.plus(viewPort.leftAxis)).intersectWithPlane(this.point, this.normal);
+		var inPlane2=new threeD.Line(viewPort.leftTop, viewPort.leftTop.plus(viewPort.topAxis)).intersectWithPlane(this.point, this.normal);
 		if(inPlane1==null){
-			inPlanelt=viewPort.lt(inPlane2);
+			lt=viewPort.lt(inPlane2);
 		}else{
-			inPlanelt=viewPort.lt(inPlane1);
+			lt=viewPort.lt(inPlane1);
 		}
-	}
-	var otherTwo=twoD.completeTheSquare(nonNullHlt[0], nonNullHlt[1], inPlanelt);
-	
-	
-	svg.planes[this.index].setPoints(nonNullHlt[0], nonNullHlt[1], otherTwo[0], otherTwo[1]);
-	//svg.planes[this.index].setPoints(nonNullHlt[0], nonNullHlt[1], {left:nonNullHlt[1].left,top:nonNullHlt[1].top+100},{left:nonNullHlt[0].left,top:nonNullHlt[0].top+100});
-	svg.planes[this.index].draw();
+		return lt;
+	};
+	this.draw=function(){
+		if(this.normal.cross(viewPort.normal).norm()==0){
+			if(this.point.minus(viewPort.viewPoint).dot(viewPort.normal)>=0){svg.planes[this.index].full();}else{svg.planes[this.index].none();}
+			svg.planes[this.index].draw();
+			return;
+		}
+		var nonNullHlt=this.getHorizonLts();
+		svg.planes[this.index].setHorizonPoints(nonNullHlt[0], nonNullHlt[1], this.getInPlaneLt());
+		svg.planes[this.index].draw();
+	};
 };
 var PlaneFactory={
 	planes: [],
@@ -498,14 +466,16 @@ var PlaneFactory={
 		var id="plane"+this.currentNumber;
 		var index=this.currentNumber;
 		for(var i=0;i<this.planes.length;i++){
-			var l=intersectionOfPlanes(point, normal, this.planes[i].point, this.planes[i].normal);
-			if(l!=null){LineLineFactory.makeLineLine(l.p1, l.p1.plus(l.baseVector),color);}
+			var l=threeD.intersectionOfPlanes(point, normal, this.planes[i].point, this.planes[i].normal);
+			if(l!=null){LineLineFactory.makeLineLine(l.p1, l.p1.plus(l.baseVector),color, 2);}
 		}
 		var p=new Plane(point, normal, id, index);
 		var n=20;
 		for(var i=-n;i<=n;i++){
-			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(n)), point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(-n)), color);
-			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(-n)).plus(p.yAxis.scale(i)), point.plus(p.xAxis.scale(n)).plus(p.yAxis.scale(i)), color);
+			//LineSegmentFactory.makeLineSegment(point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(n)), point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(-n)), color);
+			//LineSegmentFactory.makeLineSegment(point.plus(p.xAxis.scale(-n)).plus(p.yAxis.scale(i)), point.plus(p.xAxis.scale(n)).plus(p.yAxis.scale(i)), color);
+			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(n)), point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(-n)), color, 1);
+			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(-n)).plus(p.yAxis.scale(i)), point.plus(p.xAxis.scale(n)).plus(p.yAxis.scale(i)), color, 1);
 		}
 		this.planes[this.currentNumber]=p;
 		svg.addPlane(0,0,0,0,0,0,0,0,id,index, color);
@@ -561,6 +531,9 @@ var drawThings=function(){
 		planes[i].draw();
 	}
 };
+var SvgSphere=function(){
+	document.getElementById("viewPortSvg").innerHTML+="<ellipse cx='' cy='' >";
+};
 var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color.toString()+";stroke-width: "+thickness+";stroke-opacity: 1.5' id='"+id+"'>";
 	this.lt1={left:l1,top:t1};
@@ -596,8 +569,13 @@ var SvgPlane=function(l1, t1, l2, t2, l3, t3, l4, t4, id, color){
 		this.setPoints(twoD.ltcorners[0], twoD.ltcorners[1], twoD.ltcorners[2], twoD.ltcorners[3]);
 	};
 	this.none=function(){this.setPoints({left:0,top:0},{left:0,top:0},{left:0,top:0},{left:0,top:0});};
-	this.setHorizonLine=function(lt1, lt2, lt3){
-	},
+	
+	this.setHorizonPoints=function(lt1, lt2, inPlaneLt){
+		var ltlt=twoD.makeInfinite(lt1, lt2, null);
+		var otherTwo=twoD.completeTheSquare(ltlt[0], ltlt[1], inPlaneLt);
+		this.setPoints(ltlt[0], ltlt[1], otherTwo[0], otherTwo[1]);
+		
+	};
 	this.draw=function(){
 		var t=function(x){return x};
 		document.getElementById(id).setAttribute("points", t(this.lt1.left)+","+t(this.lt1.top)+" "+t(this.lt2.left)+","+t(this.lt2.top)+" "+t(this.lt3.left)+","+t(this.lt3.top)+" "+t(this.lt4.left)+","+t(this.lt4.top));
@@ -659,10 +637,10 @@ var svg={
 		}
 	},
 	addLineSegment: function(l1,t1,l2,t2, id, index, color){
-		this.lineSegments[index]=new SvgLine(l1,t1,l2,t2,id,color, 2);
+		this.lineSegments[index]=new SvgLine(l1,t1,l2,t2,id,color, 1);
 	},
-	addLineLine: function(l1,t1,l2,t2,id,index,color){
-		this.lineLines[index]=new SvgLine(l1,t1,l2,t2,id,color, 1);
+	addLineLine: function(l1,t1,l2,t2,id,index,color, thickness){
+		this.lineLines[index]=new SvgLine(l1,t1,l2,t2,id,color, thickness);
 	},
 	addPlane: function(l1, t1, l2, t2, l3, t3, l4, t4, id, index, color){
 		this.planes[index]=new SvgPlane(l1, t1, l2, t2, l3, t3, l4, t4, id, color);
@@ -673,31 +651,20 @@ var svg={
 	}
 };
 
-var p1=new Point(0.5,0.5,0.5);
-var p2=new Point(-0.5,0.5,0.5);
-var p3=new Point(0.5,-0.5,0.5);
-var p4=new Point(-0.5,-0.5,0.5);
-var p5=new Point(0.5,0.5,-0.5);
-var p6=new Point(-0.5,0.5,-0.5);
-var p7=new Point(0.5,-0.5,-0.5);
-var p8=new Point(-0.5,-0.5,-0.5);
+var p1=new threeD.Point(0.5,0.5,0.5);
+var p2=new threeD.Point(-0.5,0.5,0.5);
+var p3=new threeD.Point(0.5,-0.5,0.5);
+var p4=new threeD.Point(-0.5,-0.5,0.5);
+var p5=new threeD.Point(0.5,0.5,-0.5);
+var p6=new threeD.Point(-0.5,0.5,-0.5);
+var p7=new threeD.Point(0.5,-0.5,-0.5);
+var p8=new threeD.Point(-0.5,-0.5,-0.5);
 
-PlaneFactory.makePlane(new Point(0,-1,0), new Point(0,1,0), new Color(0,0,100));
-PlaneFactory.makePlane(new Point(5,0,0), new Point(-1,0,0), new Color(100,0,0));
-PlaneFactory.makePlane(new Point(0,0,5), new Point(0,0,-1), new Color(0,100,0));
+PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(0,0,100));
+PlaneFactory.makePlane(new threeD.Point(5,0,0), new threeD.Point(-1,0,0), new Color(100,0,0));
+PlaneFactory.makePlane(new threeD.Point(0,0,5), new threeD.Point(0,0,-1), new Color(0,100,0));
 
-LineSegmentFactory.makeLineSegment(p1, p3, new Color(255,0,0));
-LineSegmentFactory.makeLineSegment(p2, p4, new Color(255,0,0));
-LineSegmentFactory.makeLineSegment(p5, p7, new Color(255,0,0));
-LineSegmentFactory.makeLineSegment(p6, p8, new Color(255,0,0));
 
-LineSegmentFactory.makeLineSegment(p1, p5, new Color(255,0,0));
-LineSegmentFactory.makeLineSegment(p3, p7, new Color(255,0,0));
-LineSegmentFactory.makeLineSegment(p2, p6, new Color(255,0,0));
-LineSegmentFactory.makeLineSegment(p4, p8, new Color(255,0,0));
-
-LineLineFactory.makeLineLine(p3,p4,new Color(0,255,0));
-LineLineFactory.makeLineLine(p1,p2,new Color(0,255,0));
 
 
 
