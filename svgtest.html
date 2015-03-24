@@ -500,6 +500,26 @@ var PlaneFactory={
 		this.currentNumber++;
 	}
 };
+var SphereFactory={
+	spheres: [],
+	currentNumber: 0,
+	Sphere: function(center, radius, id, index){
+		this.center=center;
+		this.radius=radius;
+		this.index=index;
+		this.draw=function(){
+			svg.spheres[this.index].draw();
+		};
+	},
+	makeSphere: function(center, radius, color){
+		var id="sphere"+this.currentNumber;
+		var index=this.currentNumber;
+		var s=new this.Sphere(center, radius, id, index);
+		this.spheres[this.currentNumber]=s;
+		svg.addSphere(id, index, color);
+		this.currentNumber++;
+	}
+};
 var drawAxes=function(){
 	var orlt=viewPort.lt(threeD.or);
 	var xult=viewPort.lt(threeD.xu);
@@ -548,16 +568,21 @@ var drawThings=function(){
 	for(var i=0;i<planes.length;i++){
 		planes[i].draw();
 	}
+	var spheres=SphereFactory.spheres;
+	for(var i=0;i<spheres.length;i++){
+		spheres[i].draw();
+	}
 };
 var SvgSphere=function(id, color){
 	document.getElementById("viewPortSvg").innerHTML+="<polygon points='0,0 0,0 0,0' style='fill: "+color.toString()+"' id='"+id+"'>";
+	this.points=[{left:0,top:0},{left:0,top:0},{left:0,top:0}];
 	this.setPoints=function(list){
 		this.points=list;
 	};
 	this.draw=function(){
 		var s="";
-		for(lt in this.points){s+=lt.left+","+lt.top+" ";}
-		document.getElementById().setAttribute("points", s);
+		for(i in this.points){s+=this.points[i].left+","+this.points[i].top+" ";}
+		document.getElementById(id).setAttribute("points", s);
 	};
 };
 var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
@@ -615,6 +640,7 @@ var svg={
 	lineSegments: [],
 	lineLines: [],
 	planes: [],
+	spheres: [],
 	mouseDown: false,
 	onMyMouseMove: function(l,t){
 		if(this.mouseDown){
@@ -671,6 +697,9 @@ var svg={
 	addPlane: function(l1, t1, l2, t2, l3, t3, l4, t4, id, index, color){
 		this.planes[index]=new SvgPlane(l1, t1, l2, t2, l3, t3, l4, t4, id, color);
 	},
+	addSphere: function(id, index, color){
+		this.spheres[index]=new SvgSphere(id, color);
+	},
 	setR: function(){
 		this.r=Math.sqrt(Math.pow(this.w, 2)+Math.pow(this.h, 2));
 		return this;
@@ -687,6 +716,7 @@ var p7=new threeD.Point(0.5,-0.5,-0.5);
 var p8=new threeD.Point(-0.5,-0.5,-0.5);
 
 PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(80,20,20));
+SphereFactory.makeSphere(new threeD.Point(0,0,1), 0.5, new Color(20,80,20));
 //PlaneFactory.makePlane(new threeD.Point(5,0,0), new threeD.Point(-1,0,0), new Color(100,0,0));
 //PlaneFactory.makePlane(new threeD.Point(0,0,5), new threeD.Point(0,0,-1), new Color(0,100,0));
 
