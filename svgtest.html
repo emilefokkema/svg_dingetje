@@ -333,7 +333,7 @@ var viewPort={
 		this.normal=this.leftAxis.cross(this.topAxis);
 	},
 	toString: function(){
-		var s='<viewport>';
+		var s='<viewport w="'+this.w+'" h="'+this.h+'">';
 		s+='<lefttop x="'+this.leftTop.x+'" y="'+this.leftTop.y+'" z="'+this.leftTop.z+'" />';
 		s+='<leftaxis x="'+this.leftAxis.x+'" y="'+this.leftAxis.y+'" z="'+this.leftAxis.z+'" />';
 		s+='<topaxis x="'+this.topAxis.x+'" y="'+this.topAxis.y+'" z="'+this.topAxis.z+'" />';
@@ -686,9 +686,9 @@ var p6=new threeD.Point(-0.5,0.5,-0.5);
 var p7=new threeD.Point(0.5,-0.5,-0.5);
 var p8=new threeD.Point(-0.5,-0.5,-0.5);
 
-PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(0,0,100));
-PlaneFactory.makePlane(new threeD.Point(5,0,0), new threeD.Point(-1,0,0), new Color(100,0,0));
-PlaneFactory.makePlane(new threeD.Point(0,0,5), new threeD.Point(0,0,-1), new Color(0,100,0));
+PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(80,20,20));
+//PlaneFactory.makePlane(new threeD.Point(5,0,0), new threeD.Point(-1,0,0), new Color(100,0,0));
+//PlaneFactory.makePlane(new threeD.Point(0,0,5), new threeD.Point(0,0,-1), new Color(0,100,0));
 
 
 
