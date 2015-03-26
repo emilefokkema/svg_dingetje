@@ -139,7 +139,7 @@ var threeD={
 				op=op.scale(Math.cos(r.angle)).plus(yAxis.unit().scale(op.norm()*Math.sin(r.angle)));
 				return r.around.plus(opUnchanged).plus(op);
 			}else{
-				return this;
+				return new threeD.Point(this.x, this.y, this.z);
 			}
 		};
 		this.Point.prototype.perpendicularTo=function(p){
@@ -508,15 +508,36 @@ var SphereFactory={
 		this.radius=radius;
 		this.index=index;
 		this.draw=function(){
-			svg.spheres[this.index].draw();
+			var toCenter=this.center.minus(viewPort.viewPoint);
+			var d=toCenter.norm();
+			var r=this.radius;
+			if(d<=r){this.svg.none();this.svg.draw();return;}
+			var startingPoint=this.center.plus(toCenter.cross(viewPort.leftAxis).unit().scale(d*r/Math.sqrt(d*d-r*r)));
+			var pointList=[startingPoint];
+			var n=12;
+			var rot=new threeD.OtherRotation(viewPort.viewPoint, toCenter, 2*Math.PI/n);
+			for(var i=1;i<n;i++){
+				startingPoint=startingPoint.rotateWithOtherRotation(rot);
+				pointList[pointList.length]=startingPoint;
+			}
+			var ltList=[];
+			for(var i=0;i<pointList.length;i++){
+				var lt=viewPort.lt(pointList[i]);
+				if(lt!=null){ltList[ltList.length]=lt;}
+			}
+			this.svg.setPoints(ltList);
+			this.svg.draw();
+		};
+		this.setSvg=function(index){
+			this.svg=svg.spheres[index];
+			return this;
 		};
 	},
 	makeSphere: function(center, radius, color){
 		var id="sphere"+this.currentNumber;
 		var index=this.currentNumber;
-		var s=new this.Sphere(center, radius, id, index);
-		this.spheres[this.currentNumber]=s;
 		svg.addSphere(id, index, color);
+		this.spheres[this.currentNumber]=new this.Sphere(center, radius, id, index).setSvg(this.currentNumber);
 		this.currentNumber++;
 	}
 };
@@ -579,6 +600,7 @@ var SvgSphere=function(id, color){
 	this.setPoints=function(list){
 		this.points=list;
 	};
+	this.none=function(){this.setPoints([{left:0,top:0},{left:0,top:0},{left:0,top:0}]);}
 	this.draw=function(){
 		var s="";
 		for(i in this.points){s+=this.points[i].left+","+this.points[i].top+" ";}
@@ -716,7 +738,8 @@ var p7=new threeD.Point(0.5,-0.5,-0.5);
 var p8=new threeD.Point(-0.5,-0.5,-0.5);
 
 PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(80,20,20));
-SphereFactory.makeSphere(new threeD.Point(0,0,1), 0.5, new Color(20,80,20));
+SphereFactory.makeSphere(new threeD.Point(0,0,1), 0.2, new Color(20,80,20));
+SphereFactory.makeSphere(new threeD.Point(1,0,1), 0.2, new Color(20,80,20));
 //PlaneFactory.makePlane(new threeD.Point(5,0,0), new threeD.Point(-1,0,0), new Color(100,0,0));
 //PlaneFactory.makePlane(new threeD.Point(0,0,5), new threeD.Point(0,0,-1), new Color(0,100,0));
 
