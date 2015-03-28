@@ -514,7 +514,7 @@ var SphereFactory={
 			if(d<=r){this.svg.none();this.svg.draw();return;}
 			var startingPoint=this.center.plus(toCenter.cross(viewPort.leftAxis).unit().scale(d*r/Math.sqrt(d*d-r*r)));
 			var pointList=[startingPoint];
-			var n=12;
+			var n=24;
 			var rot=new threeD.OtherRotation(viewPort.viewPoint, toCenter, 2*Math.PI/n);
 			for(var i=1;i<n;i++){
 				startingPoint=startingPoint.rotateWithOtherRotation(rot);
@@ -528,6 +528,23 @@ var SphereFactory={
 			this.svg.setPoints(ltList);
 			this.svg.draw();
 		};
+		this.pointWithCoords=function(lo, la){
+			return this.center.plus(threeD.xu.rotate(threeD.or, 2, la).rotate(threeD.or, 1, lo).scale(this.radius));
+		};
+		this.pointsOnMeridian=function(lo, n){
+			var pointsOnMeridian=[];
+			for(var la=-Math.PI/2; la<=Math.PI/2; la+=Math.PI/n){
+				pointsOnMeridian[pointsOnMeridian.length]=this.pointWithCoords(lo,la);
+			}
+			return pointsOnMeridian;
+		};
+		this.pointsOnLatitude=function(la, n){
+			var pointsOnLatitude=[];
+			for(var lo=-Math.PI;lo<=Math.PI;lo+=2*Math.PI/n){
+				pointsOnLatitude[pointsOnLatitude.length]=this.pointWithCoords(lo,la);
+			}
+			return pointsOnLatitude;
+		};
 		this.setSvg=function(index){
 			this.svg=svg.spheres[index];
 			return this;
@@ -537,7 +554,20 @@ var SphereFactory={
 		var id="sphere"+this.currentNumber;
 		var index=this.currentNumber;
 		svg.addSphere(id, index, color);
-		this.spheres[this.currentNumber]=new this.Sphere(center, radius, id, index).setSvg(this.currentNumber);
+		var s=new this.Sphere(center, radius, id, index).setSvg(this.currentNumber);
+		this.spheres[this.currentNumber]=s;
+		for(var lo=-Math.PI;lo<=Math.PI;lo+=Math.PI/5){
+			var pointsOnMeridian=s.pointsOnMeridian(lo,20);
+			for(var i=1;i<pointsOnMeridian.length;i++){
+				LineSegmentFactory.makeLineSegment(pointsOnMeridian[i-1], pointsOnMeridian[i], color);
+			}
+		}
+		for(var la=-Math.PI/2;la<=Math.PI/2;la+=Math.PI/5){
+			var pointsOnLatitude=s.pointsOnLatitude(la, 20);
+			for(var i=1;i<pointsOnLatitude.length;i++){
+				LineSegmentFactory.makeLineSegment(pointsOnLatitude[i-1], pointsOnLatitude[i], color);
+			}
+		}
 		this.currentNumber++;
 	}
 };
@@ -595,7 +625,7 @@ var drawThings=function(){
 	}
 };
 var SvgSphere=function(id, color){
-	document.getElementById("viewPortSvg").innerHTML+="<polygon points='0,0 0,0 0,0' style='fill: "+color.toString()+"' id='"+id+"'>";
+	document.getElementById("viewPortSvg").innerHTML+="<polygon points='0,0 0,0 0,0' style='fill: "+color.toString()+";fill-opacity: 0.4' id='"+id+"'>";
 	this.points=[{left:0,top:0},{left:0,top:0},{left:0,top:0}];
 	this.setPoints=function(list){
 		this.points=list;
