@@ -353,7 +353,7 @@ var LineSegmentFactory={
 			var visible=viewPort.getVisiblePointsBetween(this.from, this.to);
 			var flt=visible[0];
 			var tlt=visible[1];
-			if(flt==null&&tlt==null){
+			if(flt==null||tlt==null){
 				this.svg.none();
 			}else{
 				this.svg.setFromTo(flt, tlt);
@@ -693,7 +693,7 @@ var SvgSphere=function(id, color){
 var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 	document.getElementById("viewPortSvg").innerHTML+="<line x1='"+l1+"' y1='"+t1+"' x2='"+l2+"' y2='"+t2+"' style='stroke:"+color.toString()+";stroke-width: "+thickness+";stroke-opacity: 1.5' id='"+id+"'>";
 	this.lt1={left:l1,top:t1};
-	this.lt2={left:l2,top:t2},
+	this.lt2={left:l2,top:t2};
 	this.setFromTo=function(f,t){this.lt1=f;this.lt2=t;};
 	this.draw=function(){
 		document.getElementById(id).setAttribute("x1", this.lt1.left);
