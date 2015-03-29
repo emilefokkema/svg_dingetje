@@ -14,8 +14,8 @@
 <text x="10" y="10" fill="rgb(100,100,100)" id="zAxisLabel">z</text>
 </svg>
 </div>
-<div style="position:absolute;left:20;top:20;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100)" onClick="show(viewPort.toString())">hoi!</div>
-<div style="position:absolute;left:60;top:60;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100);width:200px;height:200px;display:none" id="xml_text_alert">
+<div style="position:absolute;left:20;top:20;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100);cursor:hand" onClick="show(SceneXml())">hoi!</div>
+<div style="position:absolute;left:60;top:60;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100);width:80%;height:80%;display:none" id="xml_text_alert">
 	<table style="width:100%;height:100%">
 		<tr><td><textarea id="xml_text" style="resize:none;width:100%;height:100%"></textarea></td></tr>
 		<tr><td><a style="-webkit-appearance: button;padding:5px;cursor: hand" onClick="document.getElementById('xml_text_alert').style.display='none'">OK</a></td></tr>
@@ -425,10 +425,11 @@ var LineLineFactory={
 var PlaneFactory={
 	planes: [],
 	currentNumber: 0,
-	Plane: function(point, normal, id, index){
+	Plane: function(point, normal, id, index, color){
 		this.point=point;
 		this.normal=normal;
 		this.index=index;
+		this.color=color;
 		if(this.normal.cross(threeD.xu).norm()!=0){
 			this.xAxis=this.point.plus(threeD.xu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
 		}
@@ -479,6 +480,12 @@ var PlaneFactory={
 			svg.planes[this.index].setHorizonPoints(nonNullHlt[0], nonNullHlt[1], this.getInPlaneLt());
 			svg.planes[this.index].draw();
 		};
+		this.toString=function(){
+			return '<plane reflection="0" diffusion="0.4" color="'+this.color.r+','+this.color.g+','+this.color.b+'">'+
+			'<point x="'+this.point.x+'" y="'+this.point.y+'" z="'+this.point.z+'"/>'+
+			'<normal x="'+this.normal.x+'" y="'+this.normal.y+'" z="'+this.normal.z+'"/>'+
+			'</plane>';
+		};
 	},
 	makePlane: function(point, normal, color){
 		var id="plane"+this.currentNumber;
@@ -487,7 +494,7 @@ var PlaneFactory={
 			var l=threeD.intersectionOfPlanes(point, normal, this.planes[i].point, this.planes[i].normal);
 			if(l!=null){LineLineFactory.makeLineLine(l.p1, l.p1.plus(l.baseVector),color, 2);}
 		}
-		var p=new this.Plane(point, normal, id, index);
+		var p=new this.Plane(point, normal, id, index, color);
 		var n=20;
 		for(var i=-n;i<=n;i++){
 			//LineSegmentFactory.makeLineSegment(point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(n)), point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(-n)), color);
@@ -549,6 +556,20 @@ var SphereFactory={
 			this.svg=svg.spheres[index];
 			return this;
 		};
+		this.makeGrid=function(color){
+			for(var lo=-Math.PI;lo<=Math.PI;lo+=Math.PI/5){
+				var pointsOnMeridian=this.pointsOnMeridian(lo,20);
+				for(var i=1;i<pointsOnMeridian.length;i++){
+					LineSegmentFactory.makeLineSegment(pointsOnMeridian[i-1], pointsOnMeridian[i], color);
+				}
+			}
+			for(var la=-Math.PI/2;la<=Math.PI/2;la+=Math.PI/5){
+				var pointsOnLatitude=this.pointsOnLatitude(la, 20);
+				for(var i=1;i<pointsOnLatitude.length;i++){
+					LineSegmentFactory.makeLineSegment(pointsOnLatitude[i-1], pointsOnLatitude[i], color);
+				}
+			}
+		};
 	},
 	makeSphere: function(center, radius, color){
 		var id="sphere"+this.currentNumber;
@@ -556,18 +577,34 @@ var SphereFactory={
 		svg.addSphere(id, index, color);
 		var s=new this.Sphere(center, radius, id, index).setSvg(this.currentNumber);
 		this.spheres[this.currentNumber]=s;
-		for(var lo=-Math.PI;lo<=Math.PI;lo+=Math.PI/5){
-			var pointsOnMeridian=s.pointsOnMeridian(lo,20);
-			for(var i=1;i<pointsOnMeridian.length;i++){
-				LineSegmentFactory.makeLineSegment(pointsOnMeridian[i-1], pointsOnMeridian[i], color);
-			}
-		}
-		for(var la=-Math.PI/2;la<=Math.PI/2;la+=Math.PI/5){
-			var pointsOnLatitude=s.pointsOnLatitude(la, 20);
-			for(var i=1;i<pointsOnLatitude.length;i++){
-				LineSegmentFactory.makeLineSegment(pointsOnLatitude[i-1], pointsOnLatitude[i], color);
-			}
-		}
+		s.makeGrid(color);
+		this.currentNumber++;
+	}
+};
+var LightSourceFactory={
+	lightSources: [],
+	currentNumber: 0,
+	LightSource: function(center, radius, id, index, color){
+		this.color=color;
+		SphereFactory.Sphere.call(this, center, radius, index);
+		this.setSvg=function(index){
+			this.svg=svg.lightSources[index];
+			return this;
+		};
+		this.toString=function(){
+			var s='<lightsource color="'+this.color.r+','+this.color.g+','+this.color.b+'" radius="'+this.radius+'">'+
+			'<location x="'+this.center.x+'" y="'+this.center.y+'" z="'+this.center.z+'" />'+
+			'</lightsource>';
+			return s;
+		};
+	},
+	makeLightSource: function(center, radius, color){
+		var id="lightSource"+this.currentNumber;
+		var index=this.currentNumber;
+		svg.addLightSource(id, index, color);
+		var s=new this.LightSource(center, radius, id, index,color).setSvg(this.currentNumber);
+		this.lightSources[this.currentNumber]=s;
+		s.makeGrid(color);
 		this.currentNumber++;
 	}
 };
@@ -623,6 +660,22 @@ var drawThings=function(){
 	for(var i=0;i<spheres.length;i++){
 		spheres[i].draw();
 	}
+	var lightSources=LightSourceFactory.lightSources;
+	for(var i=0;i<lightSources.length;i++){
+		lightSources[i].draw();
+	}
+};
+var SceneXml=function(){
+	var s='<?xml version="1.0" encoding="UTF-8"?><scene xmlns="http://www.sogyo.nl/efokkema_raytrace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ><group>';
+	var planes=PlaneFactory.planes;
+	for(var i=0;i<planes.length;i++){
+		s+=planes[i].toString();
+	}
+	var lightSources=LightSourceFactory.lightSources;
+	for(var i=0;i<lightSources.length;i++){
+		s+=lightSources[i].toString();
+	}
+	return s+'</group>'+viewPort.toString()+'</scene>';
 };
 var SvgSphere=function(id, color){
 	document.getElementById("viewPortSvg").innerHTML+="<polygon points='0,0 0,0 0,0' style='fill: "+color.toString()+";fill-opacity: 0.4' id='"+id+"'>";
@@ -693,6 +746,7 @@ var svg={
 	lineLines: [],
 	planes: [],
 	spheres: [],
+	lightSources: [],
 	mouseDown: false,
 	onMyMouseMove: function(l,t){
 		if(this.mouseDown){
@@ -752,6 +806,9 @@ var svg={
 	addSphere: function(id, index, color){
 		this.spheres[index]=new SvgSphere(id, color);
 	},
+	addLightSource: function(id, index, color){
+		this.lightSources[index]=new SvgSphere(id, color);
+	},
 	setR: function(){
 		this.r=Math.sqrt(Math.pow(this.w, 2)+Math.pow(this.h, 2));
 		return this;
@@ -768,8 +825,10 @@ var p7=new threeD.Point(0.5,-0.5,-0.5);
 var p8=new threeD.Point(-0.5,-0.5,-0.5);
 
 PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(80,20,20));
-SphereFactory.makeSphere(new threeD.Point(0,0,1), 0.2, new Color(20,80,20));
-SphereFactory.makeSphere(new threeD.Point(1,0,1), 0.2, new Color(20,80,20));
+//SphereFactory.makeSphere(new threeD.Point(0,0,1), 0.1, new Color(20,80,20));
+//SphereFactory.makeSphere(new threeD.Point(1,0,1), 0.1, new Color(20,80,20));
+//SphereFactory.makeSphere(threeD.or, 0.3,new Color(20,80,20));
+LightSourceFactory.makeLightSource(new threeD.Point(0,3,0), 2,new Color(255,255,255));
 //PlaneFactory.makePlane(new threeD.Point(5,0,0), new threeD.Point(-1,0,0), new Color(100,0,0));
 //PlaneFactory.makePlane(new threeD.Point(0,0,5), new threeD.Point(0,0,-1), new Color(0,100,0));
 
