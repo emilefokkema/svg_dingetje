@@ -510,10 +510,12 @@ var PlaneFactory={
 var SphereFactory={
 	spheres: [],
 	currentNumber: 0,
-	Sphere: function(center, radius, id, index){
+	Sphere: function(center, radius, id, index, color){
 		this.center=center;
 		this.radius=radius;
 		this.index=index;
+		console.log(color);
+		this.color=color;
 		this.draw=function(){
 			var toCenter=this.center.minus(viewPort.viewPoint);
 			var d=toCenter.norm();
@@ -556,6 +558,12 @@ var SphereFactory={
 			this.svg=svg.spheres[index];
 			return this;
 		};
+		this.toString=function(){
+			var s='<sphere reflection="0" diffusion="0.4" color="'+this.color.r+','+this.color.g+','+this.color.b+'" radius="'+this.radius+'">'+
+			'<center x="'+this.center.x+'" y="'+this.center.y+'" z="'+this.center.z+'" />'+
+			'</sphere>';
+			return s;
+		};
 		this.makeGrid=function(color){
 			for(var lo=-Math.PI;lo<=Math.PI;lo+=Math.PI/5){
 				var pointsOnMeridian=this.pointsOnMeridian(lo,20);
@@ -575,7 +583,7 @@ var SphereFactory={
 		var id="sphere"+this.currentNumber;
 		var index=this.currentNumber;
 		svg.addSphere(id, index, color);
-		var s=new this.Sphere(center, radius, id, index).setSvg(this.currentNumber);
+		var s=new this.Sphere(center, radius, id, index, color).setSvg(this.currentNumber);
 		this.spheres[this.currentNumber]=s;
 		s.makeGrid(color);
 		this.currentNumber++;
@@ -585,8 +593,7 @@ var LightSourceFactory={
 	lightSources: [],
 	currentNumber: 0,
 	LightSource: function(center, radius, id, index, color){
-		this.color=color;
-		SphereFactory.Sphere.call(this, center, radius, index);
+		SphereFactory.Sphere.call(this, center, radius, id,index, color);
 		this.setSvg=function(index){
 			this.svg=svg.lightSources[index];
 			return this;
@@ -674,6 +681,10 @@ var SceneXml=function(){
 	var lightSources=LightSourceFactory.lightSources;
 	for(var i=0;i<lightSources.length;i++){
 		s+=lightSources[i].toString();
+	}
+	var spheres=SphereFactory.spheres;
+	for(var i=0;i<spheres.length;i++){
+		s+=spheres[i].toString();
 	}
 	return s+'</group>'+viewPort.toString()+'</scene>';
 };
@@ -828,7 +839,9 @@ PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Co
 //SphereFactory.makeSphere(new threeD.Point(0,0,1), 0.1, new Color(20,80,20));
 //SphereFactory.makeSphere(new threeD.Point(1,0,1), 0.1, new Color(20,80,20));
 //SphereFactory.makeSphere(threeD.or, 0.3,new Color(20,80,20));
-LightSourceFactory.makeLightSource(new threeD.Point(0,3,0), 2,new Color(255,255,255));
+LightSourceFactory.makeLightSource(new threeD.Point(0,10,0), 1,new Color(255,255,255));
+SphereFactory.makeSphere(new threeD.Point(0,2,0),1,new Color(20,80,20));
+SphereFactory.makeSphere(new threeD.Point(3,2,0),1,new Color(20,80,20));
 //PlaneFactory.makePlane(new threeD.Point(5,0,0), new threeD.Point(-1,0,0), new Color(100,0,0));
 //PlaneFactory.makePlane(new threeD.Point(0,0,5), new threeD.Point(0,0,-1), new Color(0,100,0));
 
