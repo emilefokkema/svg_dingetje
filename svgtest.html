@@ -3,7 +3,7 @@
 	<title>SVG test</title>
 </head>
 <body style="overflow: hidden;background-color:rgb(0,0,0)">
-<div style="border:1px solid #000000;width:100%;height:100%" id="viewPort">
+	<div style="border:1px solid #000000;width:100%;height:100%" id="viewPort">
 <!--<svg ontouchstart="svg.onTouchStart(event)" ontouchmove="svg.onTouchMove(event)" ontouchend="svg.onTouchEnd(event)" onMouseDown="svg.onMouseDown(event)" onMouseUp="svg.onMouseUp()" onMouseMove="svg.onMouseMove(event)" id="viewPortSvg" width="100%" height="100%" style="border: 1px solid #000000">
 <line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(100,100,100);stroke-width:0.5" id="xAxis"/>
 <text x="10" y="10" fill="rgb(100,100,100)" id="xAxisLabel">x</text>
@@ -103,21 +103,21 @@ var threeD={
 		};
 		this.Point.prototype.rotate=function(around, axis, angle){
 			var op=this.minus(around);
-				if(axis==0){
-					var npy=op.y*Math.cos(angle)-op.z*Math.sin(angle);
-					var npz=op.z*Math.cos(angle)+op.y*Math.sin(angle);
-					return around.plus(new self.Point(op.x, npy, npz));
-				}
-				if(axis==1){
-					var npz=op.z*Math.cos(angle)-op.x*Math.sin(angle);
-					var npx=op.x*Math.cos(angle)+op.z*Math.sin(angle);
-					return around.plus(new self.Point(npx, op.y, npz));
-				}
-				if(axis==2){
-					var npx=op.x*Math.cos(angle)-op.y*Math.sin(angle);
-					var npy=op.y*Math.cos(angle)+op.x*Math.sin(angle);
-					return around.plus(new self.Point(npx, npy, op.z));
-				}
+			if(axis==0){
+				var npy=op.y*Math.cos(angle)-op.z*Math.sin(angle);
+				var npz=op.z*Math.cos(angle)+op.y*Math.sin(angle);
+				return around.plus(new self.Point(op.x, npy, npz));
+			}
+			if(axis==1){
+				var npz=op.z*Math.cos(angle)-op.x*Math.sin(angle);
+				var npx=op.x*Math.cos(angle)+op.z*Math.sin(angle);
+				return around.plus(new self.Point(npx, op.y, npz));
+			}
+			if(axis==2){
+				var npx=op.x*Math.cos(angle)-op.y*Math.sin(angle);
+				var npy=op.y*Math.cos(angle)+op.x*Math.sin(angle);
+				return around.plus(new self.Point(npx, npy, op.z));
+			}
 		};
 		this.Point.prototype.rotateWithRotation=function(r){
 			return this.rotate(r.around, r.axis, r.angle);
@@ -681,7 +681,7 @@ var SvgSphere=function(id, color){
 	this.draw=function(){
 		var s="";
 		for(i in this.points){s+=this.points[i].left+","+this.points[i].top+" ";}
-		document.getElementById(id).setAttribute("points", s);
+			document.getElementById(id).setAttribute("points", s);
 	};
 	this.setColor=function(color1){
 		document.getElementById(id).setAttribute('style', 'fill: '+color1.toString()+';fill-opacity: 0.4');
@@ -821,43 +821,43 @@ var svg={
 		var self=this;
 		var makeAxisAndLabel=function(axisName){
 			var line=document.createElement('line');
-				line.setAttribute('x1', 0);
-				line.setAttribute('y1', 0);
-				line.setAttribute('x2', 0);
-				line.setAttribute('y2', 0);
-				line.setAttribute('style', 'stroke:rgb(100,100,100);stroke-width:0.5');
-				line.setAttribute('id',axisName+'Axis');
+			line.setAttribute('x1', 0);
+			line.setAttribute('y1', 0);
+			line.setAttribute('x2', 0);
+			line.setAttribute('y2', 0);
+			line.setAttribute('style', 'stroke:rgb(100,100,100);stroke-width:0.5');
+			line.setAttribute('id',axisName+'Axis');
 			var text=document.createElement('text');
-				text.setAttribute('x', 0);
-				text.setAttribute('y', 0);
-				text.setAttribute('fill', 'rgb(100,100,100)');
-				text.setAttribute('id', axisName+'AxisLabel');
-				text.appendChild(document.createTextNode(axisName));
+			text.setAttribute('x', 0);
+			text.setAttribute('y', 0);
+			text.setAttribute('fill', 'rgb(100,100,100)');
+			text.setAttribute('id', axisName+'AxisLabel');
+			text.appendChild(document.createTextNode(axisName));
 			return {axis:line,label:text};
 		};
 		(function(){
 			var NS="http://www.w3.org/2000/svg";
 			var svgNode=document.createElementNS(NS,"svg");
 			//var svgNode=document.createElement('svg');
-				svgNode.ontouchstart=function(event){self.onTouchStart(event);};
-				svgNode.ontouchmove=function(event){self.onTouchMove(event);};
-				svgNode.ontouchend=function(event){self.onTouchEnd(event);};
-				svgNode.onmousedown=function(event){self.onMouseDown(event);};
-				svgNode.onmouseup=function(event){self.onMouseUp(event);};
-				svgNode.onmousemove=function(event){self.onMouseMove(event);};
-				svgNode.setAttribute('id','viewPortSvg');
-				svgNode.setAttribute('width','100%');
-				svgNode.setAttribute('height','100%');
-				svgNode.setAttribute('style', 'border: 1px solid #000000');
+			svgNode.ontouchstart=function(event){self.onTouchStart(event);};
+			svgNode.ontouchmove=function(event){self.onTouchMove(event);};
+			svgNode.ontouchend=function(event){self.onTouchEnd(event);};
+			svgNode.onmousedown=function(event){self.onMouseDown(event);};
+			svgNode.onmouseup=function(event){self.onMouseUp(event);};
+			svgNode.onmousemove=function(event){self.onMouseMove(event);};
+			svgNode.setAttribute('id','viewPortSvg');
+			svgNode.setAttribute('width','100%');
+			svgNode.setAttribute('height','100%');
+			svgNode.setAttribute('style', 'border: 1px solid #000000');
 			var al=makeAxisAndLabel('x');
-				svgNode.appendChild(al.axis);
-				svgNode.appendChild(al.label);
+			svgNode.appendChild(al.axis);
+			svgNode.appendChild(al.label);
 			al=makeAxisAndLabel('y');
-				svgNode.appendChild(al.axis);
-				svgNode.appendChild(al.label);
+			svgNode.appendChild(al.axis);
+			svgNode.appendChild(al.label);
 			al=makeAxisAndLabel('z');
-				svgNode.appendChild(al.axis);
-				svgNode.appendChild(al.label);
+			svgNode.appendChild(al.axis);
+			svgNode.appendChild(al.label);
 			where.appendChild(svgNode);
 		})();
 		var makeButton=function(offset, text, onmousedown, onmouseup){
@@ -878,7 +878,7 @@ var svg={
 			table.setAttribute('style', 'width:100%;height:100%');
 			for(var i=0;i<nodesInCells.length;i++){
 				var row=document.createElement('tr');
-				row.setAttribute('height', rowHeights[i]);
+				if(rowHeights){row.setAttribute('height', rowHeights[i]);}
 				for(var j=0;j<nodesInCells[i].length;j++){
 					var td=document.createElement('td');
 					td.appendChild(nodesInCells[i][j]);
@@ -892,7 +892,20 @@ var svg={
 			document.getElementById("xml_text_alert").style.display="initial";
 			document.getElementById("xml_text").value=string;
 		};
-		where.appendChild(makeButton({left:20,top:20},'hoi',function(){show(SceneXml());}));
+		where.appendChild(makeButton({left:20,top:20},'hoi',function(){
+			var s=SceneXml();
+			var lines=s.split('<');
+			var indent='';
+			var minus, equal, line;
+			for(var i=1;i<lines.length;i++){
+				line=lines[i];
+				if(line[0]=='/'){indent=indent.substring(2);}
+				lines[i]=indent+'<'+line;
+				if(line[0]!='/'&&line.slice(-2)!='/>'){indent=indent+'  ';}
+			}
+			var s1=lines.join('\n').replace(/^\n/g, '');
+			show(s1);
+		}));
 		where.appendChild(makeButton({right:20,top:20},'back up',function(){viewPort.scale(1.5);drawThings();}));
 		where.appendChild(makeButton({right:20,top:50},'move in',function(){viewPort.scale(0.75);drawThings();}));
 		where.appendChild(makeButton({left:20,bottom:20},'<', function(){viewPort.rotY(0.1);drawThings();}));
@@ -926,7 +939,6 @@ var svg={
 
 
 
-PlaneFactory.makePlane(new threeD.Point(6,0,0), new threeD.Point(-1,0,0), new Color(20,20,80));
 PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(80,20,20));
 //SphereFactory.makeSphere(new threeD.Point(0,0,1), 0.1, new Color(20,80,20));
 //SphereFactory.makeSphere(new threeD.Point(1,0,1), 0.1, new Color(20,80,20));
