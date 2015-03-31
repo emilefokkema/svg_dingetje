@@ -16,10 +16,7 @@
 </div>
 
 <script language="JavaScript">
-var show=function(string){
-	document.getElementById("xml_text_alert").style.display="initial";
-	document.getElementById("xml_text").value=string;
-};
+
 var Color=function(r,g,b){
 	this.r=r;
 	this.g=g;
@@ -500,7 +497,6 @@ var SphereFactory={
 		this.center=center;
 		this.radius=radius;
 		this.index=index;
-		console.log(color);
 		this.color=color;
 		this.draw=function(){
 			var toCenter=this.center.minus(viewPort.viewPoint);
@@ -862,15 +858,18 @@ var svg={
 			al=makeAxisAndLabel('z');
 				svgNode.appendChild(al.axis);
 				svgNode.appendChild(al.label);
-			console.log("now appending svgNode");
 			where.appendChild(svgNode);
-			console.log(document.getElementById('viewPortSvg').offsetWidth);
 		})();
-		var makeButton=function(offset, text, onclick){
+		var makeButton=function(offset, text, onmousedown, onmouseup){
 			var positionString=(offset.left||offset.right)?('position:absolute; '+(offset.left?'left: '+offset.left+'; ':'right: '+offset.right+'; ')+(offset.top?'top: '+offset.top+'; ':'bottom: '+offset.bottom+'; ')):'';
 			var button=document.createElement('div');
 			button.setAttribute('style', positionString+'-webkit-appearance: button;cursor: hand;padding:5px');
-			button.onclick=onclick;
+			button.onmousedown=function(event){
+				if(event.which!=1){return;}
+				self.preventDefault(event);
+				onmousedown.call(null);
+			};
+			button.onmouseup=onmouseup||function(){};
 			button.appendChild(document.createTextNode(text));
 			return button;
 		};
@@ -889,9 +888,14 @@ var svg={
 			}
 			return table;
 		};
+		var show=function(string){
+			document.getElementById("xml_text_alert").style.display="initial";
+			document.getElementById("xml_text").value=string;
+		};
 		where.appendChild(makeButton({left:20,top:20},'hoi',function(){show(SceneXml());}));
 		where.appendChild(makeButton({right:20,top:20},'back up',function(){viewPort.scale(1.5);drawThings();}));
 		where.appendChild(makeButton({right:20,top:50},'move in',function(){viewPort.scale(0.75);drawThings();}));
+		where.appendChild(makeButton({left:20,bottom:20},'<', function(){viewPort.rotY(0.1);drawThings();}));
 		(function(){
 			var xmlDialog=document.createElement('div');
 			xmlDialog.setAttribute('style', 'position:absolute;left:60;top:60;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100);width:70%;height:70%;display:none');
@@ -929,7 +933,6 @@ PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Co
 LightSourceFactory.makeLightSource(new threeD.Point(0,15,0), 3,new Color(255,255,255));
 SphereFactory.makeSphere(new threeD.Point(-2,2,0),1,new Color(20,80,20));
 SphereFactory.makeSphere(new threeD.Point(2,2,0),1,new Color(20,80,20));
-SphereFactory.makeSphere(threeD.or,0.5,new Color(20,20,80));
 //PlaneFactory.makePlane(new threeD.Point(5,0,0), new threeD.Point(-1,0,0), new Color(100,0,0));
 //PlaneFactory.makePlane(new threeD.Point(0,0,5), new threeD.Point(0,0,-1), new Color(0,100,0));
 
