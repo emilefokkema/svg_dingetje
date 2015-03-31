@@ -869,7 +869,12 @@ var svg={
 				self.preventDefault(event);
 				onmousedown.call(null);
 			};
-			button.onmouseup=onmouseup||function(){};
+			if(onmouseup){
+				button.onmouseup=function(){
+					onmouseup.call(null);
+				};
+			}
+			//button.onmouseup=onmouseup||function(){};
 			button.appendChild(document.createTextNode(text));
 			return button;
 		};
@@ -906,7 +911,17 @@ var svg={
 			var s1=lines.join('\n').replace(/^\n/g, '');
 			show(s1);
 		}));
-		where.appendChild(makeButton({right:20,top:20},'back up',function(){viewPort.scale(1.5);drawThings();}));
+		var newMover=function(move, moveAmount){
+			var mouseDown=false;
+			var doMove=function(){if(mouseDown){move(moveAmount);setTimeout(doMove,50);}};
+			return {
+				onmousedown: function(){mouseDown=true;doMove();},
+				onmouseup: function(){mouseDown=false;}
+			};
+		};
+		var scaleMover=newMover(function(a){viewPort.scale(a);drawThings();}, 1.025);
+		where.appendChild(makeButton({right:20,top:20},'back up',scaleMover.onmousedown,scaleMover.onmouseup));
+		//where.appendChild(makeButton({right:20,top:20},'back up',function(){viewPort.scale(1.5);drawThings();}));
 		where.appendChild(makeButton({right:20,top:50},'move in',function(){viewPort.scale(0.75);drawThings();}));
 		where.appendChild(makeButton({left:20,bottom:20},'<', function(){viewPort.rotY(0.1);drawThings();}));
 		(function(){
