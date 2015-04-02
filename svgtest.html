@@ -889,24 +889,29 @@ var svg={
 		})();
 
 		
-		
+		var positionString=function(offset){
+			return (offset.left||offset.right)?('position:absolute; '+(offset.left?'left: '+offset.left+'; ':'right: '+offset.right+'; ')+(offset.top?'top: '+offset.top+'; ':'bottom: '+offset.bottom+'; ')):'';
+		};
+		var sizeString=function(size){
+			return size?((size.width?'width: '+size.width+'; ':'')+(size.height?'height: '+size.height+'; ':'')):'';
+		};
 		var makeButton=function(offset, text, onmousedown, onmouseup, opacity, size){
-			var positionString=(offset.left||offset.right)?('position:absolute; '+(offset.left?'left: '+offset.left+'; ':'right: '+offset.right+'; ')+(offset.top?'top: '+offset.top+'; ':'bottom: '+offset.bottom+'; ')):'';
-			var opacityString=opacity?'; opacity: '+opacity:'';
-			var sizeString=size?((size.width?'; width: '+size.width:'')+(size.height?'; height: '+size.height:'')):'';
+			var opacityString=opacity?'opacity: '+opacity+'; ':'';
 			var button=document.createElement('div');
-			button.setAttribute('style', positionString+'-webkit-appearance: button;cursor: hand;padding:5px;font-family:Arial'+opacityString+sizeString);
+			button.setAttribute('style', positionString(offset)+'-webkit-appearance: button;cursor: hand;padding:5px;font-family:Arial; '+opacityString+sizeString(size));
 			button.onmousedown=function(event){
 				self.preventDefault(event);
 				if(event.which!=1){return;}
 				
 				onmousedown.call(null);
 			};
-			if(onmouseup){
-				button.onmouseup=function(){
+			var stopFunction=function(){
+				if(onmouseup){
 					onmouseup.call(null);
-				};
-			}
+				}
+			};
+			button.onmouseup=stopFunction;
+			button.onmouseleave=stopFunction;
 			//button.onmouseup=onmouseup||function(){};
 			button.appendChild(document.createTextNode(text));
 			return button;
@@ -930,17 +935,16 @@ var svg={
 		};
 
 		//dialog box for displaying xml
-		(function(){
+		var xmlDialog=(function(){
 			var xmlDialog=document.createElement('div');
 			xmlDialog.setAttribute('style', 'position:absolute;left:80;top:60;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100);width:70%;height:70%;display:none');
-			xmlDialog.setAttribute('id', 'xml_text_alert');
-			var button=makeButton({},'OK',function(){document.getElementById('xml_text_alert').style.display='none';});
+			var button=makeButton({},'OK',function(){xmlDialog.style.display='none';}, function(){}, 1, {width:100});
 			var text=document.createElement('textarea');
-			text.setAttribute('id', 'xml_text');
 			text.setAttribute('style', 'resize:none;width:100%;height:100%');
 			var table=makeTable([[text],[button]],['90%','10%']);
 			xmlDialog.appendChild(table);
 			where.appendChild(xmlDialog);
+			return {dialog: xmlDialog,text: text};
 		})();
 
 		//button for displaying xml
@@ -956,8 +960,8 @@ var svg={
 				if(line[0]!='/'&&line.slice(-2)!='/>'){indent=indent+'  ';}
 			}
 			var s1=lines.join('\n').replace(/^\n/g, '');
-			document.getElementById("xml_text_alert").style.display="initial";
-			document.getElementById("xml_text").value=s1;
+			xmlDialog.dialog.style.display="initial";
+			xmlDialog.text.value=s1;
 		};
 		var sceneXml=function(){
 			var s='<?xml version="1.0" encoding="UTF-8"?><scene xmlns="http://www.sogyo.nl/efokkema_raytrace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ><group>';
@@ -978,24 +982,23 @@ var svg={
 		where.appendChild(makeButton({left:20,top:20},'hoi',function(){showXml(sceneXml());}, function(){},0.5));
 
 		//dialog box for displaying shape list
-		(function(){
+		var shapeListDialog=(function(){
 			var shapeListDialog=document.createElement('div');
 			shapeListDialog.setAttribute('style', 'position:absolute;left:80;top:60;padding:0px;width:40%;min-width:450;height:70%;display:none;font-family:Arial');
-			shapeListDialog.setAttribute('id','shape_list_alert');
-			var button=makeButton({},'DONE',function(){document.getElementById('shape_list_alert').style.display='none';}, function(){}, 1, {width:100});
+			var button=makeButton({},'DONE',function(){shapeListDialog.style.display='none';}, function(){}, 1, {width:100});
 			var text=document.createElement('div');
-			text.setAttribute('id','shape_list');
 			text.setAttribute('style','width:100%;height:100%;overflow:scroll;padding:0px;margin:0px');
 			var table=makeTable([[text],[button]],['90%','10%']);
 			shapeListDialog.appendChild(table);
 			where.appendChild(shapeListDialog);
+			return {dialog: shapeListDialog,text:text};
 		})();
 
 		//button for displaying shape list
 		var showShapeList=function(table){
-			document.getElementById("shape_list_alert").style.display="initial";
-			document.getElementById("shape_list").innerHTML="";
-			document.getElementById("shape_list").appendChild(table);
+			shapeListDialog.dialog.style.display="initial";
+			shapeListDialog.text.innerHTML="";
+			shapeListDialog.text.appendChild(table);
 		};
 		var sceneShapeList=function(){
 			var makeRow={
@@ -1099,6 +1102,85 @@ var svg={
 				onmouseup: function(){mouseDown=false;currentMoveAmount=moveAmount;}
 			};
 		};
+		var newSlideMover=function(move, scaleMove){
+			var mouseDown=false;
+			var currentMoveAmount;
+			var doMove=function(){
+				if(mouseDown){
+					move(currentMoveAmount);
+					setTimeout(doMove, 50);
+				}
+			};
+			var setMoveAmount=function(x,y){
+				currentMoveAmount=scaleMove(x,y);
+			};
+			return {
+				onmousedown: function(x,y){
+					setMoveAmount(x,y);
+					mouseDown=true;
+					doMove();
+				},
+				onmousemove: function(x,y){
+					if(mouseDown){setMoveAmount(x,y);}
+				},
+				onmouseup: function(){mouseDown=false;}
+			};
+		};
+		var makeSlider=function(offset, size, orientation){
+			var rectangle=function(offset,size){
+				var node=document.createElement('div');
+				node.setAttribute('style',positionString(offset)+sizeString(size)+'background-color: rgb(200,200,200);border:1pt solid rgb(100,100,100)');
+				return node;
+			};
+			var slideBar=(function(){
+				var thisOffset;
+				if(orientation==0){
+					thisOffset=offset.left?{left:offset.left}:{right:offset.right};
+					if(offset.top){
+						thisOffset.top=offset.top+size.height/3;
+					}else{
+						thisOffset.bottom=offset.bottom+size.height/3;
+					}
+					return rectangle(thisOffset, {width:size.width,height: size.height/3});
+				}else{
+					thisOffset=offset.top?{top:offset.top}:{bottom:offset.bottom};
+					if(offset.left){
+						thisOffset.left=offset.left+size.width/3;
+					}else{
+						thisOffset.right=offset.right+size.width/3;
+					}
+					return rectangle(thisOffset, {width:size.width/3,height: size.height});
+				}
+			})();
+			var slideHandle=(function(){
+				var r=1/6;
+				var thisOffset;
+				if(orientation==0){
+					thisOffset=offset.top?{top:offset.top}:{bottom:offset.bottom};
+					if(offset.left){
+						thisOffset.left=offset.left+size.width*(1-r)/2;
+					}else{
+						thisOffset.right=offset.right+size.width*(1-r)/2;
+					}
+				}else{
+					thisOffset=offset.left?{left:offset.left}:{right:offset.right};
+					if(offset.top){
+						thisOffset.top=offset.top+size.height*(1-r)/2;
+					}else{
+						thisOffset.bottom=offset.bottom+size.height*(1-r)/2;
+					}
+				}
+				var handle=rectangle(thisOffset,orientation==0?{width:size.width*r,height:size.height}:{width:size.width,height:size.height*r});
+				return handle;
+			})();
+
+			return {bar:slideBar,handle:slideHandle};
+		};
+
+		var slider=makeSlider({right:20,top:100}, {width:30,height:200},1);
+		where.appendChild(slider.bar);
+		where.appendChild(slider.handle);
+
 		var scaleMoverUp=newMover(function(a){viewPort.scale(a);drawThings();}, 1.01,function(a){return a*1.01;});
 		where.appendChild(makeButton({right:20,top:20},'back up',scaleMoverUp.onmousedown,scaleMoverUp.onmouseup, 0.5));
 
