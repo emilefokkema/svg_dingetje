@@ -307,13 +307,13 @@ var viewPort={
 		this.normal=this.leftAxis.cross(this.topAxis);
 	},
 	rotX: function(angle){
-		this.rotateWithOtherRotation(new threeD.OtherRotation(new threeD.Point(0,0,0), this.leftAxis, angle));
+		this.rotateWithOtherRotation(new threeD.OtherRotation(threeD.or, this.leftAxis, angle));
 	},
 	rotY: function(angle){
-		this.rotateWithOtherRotation(new threeD.OtherRotation(new threeD.Point(0,0,0), this.topAxis, angle));
+		this.rotateWithOtherRotation(new threeD.OtherRotation(threeD.or, this.topAxis, angle));
 	},
 	rotZ: function(angle){
-		this.rotateWithRotation(new threeD.OtherRotation(new threeD.Point(0,0,0), this.leftAxis.cross(this.topAxis), angle));
+		this.rotateWithOtherRotation(new threeD.OtherRotation(threeD.or, this.leftAxis.cross(this.topAxis), angle));
 	},
 	scale: function(r){
 		this.leftTop=this.leftTop.scale(r);
@@ -336,9 +336,11 @@ var LineSegmentFactory={
 	lineSegments: [],
 	currentNumber: 0,
 	LineSegment: function(from, to, id, index){
-		this.from=from;
-		this.to=to;
 		this.index=index;
+		this.setFromTo=function(from, to){
+			this.from=from;
+			this.to=to;
+		}
 		this.draw=function(){
 			var visible=viewPort.getVisiblePointsBetween(this.from, this.to);
 			var flt=visible[0];
@@ -357,22 +359,27 @@ var LineSegmentFactory={
 			this.svg=svg;
 			return this;
 		};
+		this.setFromTo(from, to);
 	},
 	makeLineSegment: function(from, to, color){
 		var id="lineSegment"+this.currentNumber;
 		var index=this.currentNumber;
-		this.lineSegments[this.currentNumber]=new this.LineSegment(from, to, id, index).setSvg(svg.addLineSegment(0,0,0,0, id, index, color));
+		var ls=new this.LineSegment(from, to, id, index).setSvg(svg.addLineSegment(0,0,0,0, id, index, color));
+		this.lineSegments[this.currentNumber]=ls;
 		this.currentNumber++;
+		return ls;
 	}
 };
 var LineLineFactory={
 	lineLines: [],
 	currentNumber: 0,
 	LineLine: function(p1, p2, id, index){
-		this.line=new threeD.Line(p1,p2);
-		this.p1=p1;
-		this.p2=p2;
 		this.index=index;
+		this.setFromTo=function(p1,p2){
+			this.line=new threeD.Line(p1,p2);
+			this.p1=p1;
+			this.p2=p2;
+		};
 		this.draw=function(){
 			var visible=viewPort.getVisiblePointsOn(this.line);
 			var p1lt=viewPort.lt(this.p1);
@@ -388,17 +395,23 @@ var LineLineFactory={
 			}
 			this.svg.draw();
 		};
+		this.setColor=function(color){
+			this.svg.setColor(color);
+		};
 		this.setSvg=function(svg){
 			this.svg=svg;
 			return this;
 		};
+		this.setFromTo(p1,p2);
 	},
 	makeLineLine: function(p1, p2, color, thickness){
 		var id="lineLine"+this.currentNumber;
 		var index=this.currentNumber;
 		//svg.addLineLine(0,0,0,0, id, index, color, thickness);
-		this.lineLines[this.currentNumber]=new this.LineLine(p1,p2,id,index).setSvg(svg.addLineLine(0,0,0,0, id, index, color, thickness));
+		var ll=new this.LineLine(p1,p2,id,index).setSvg(svg.addLineLine(0,0,0,0, id, index, color, thickness));
+		this.lineLines[this.currentNumber]=ll;
 		this.currentNumber++;
+		return ll;
 	}
 };
 var PlaneFactory={
@@ -409,16 +422,18 @@ var PlaneFactory={
 		this.normal=normal;
 		this.index=index;
 		this.color=color;
-		if(this.normal.cross(threeD.xu).norm()!=0){
-			this.xAxis=this.point.plus(threeD.xu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
-		}
-		else if(this.normal.cross(threeD.yu).norm()!=0){
-			this.xAxis=this.point.plus(threeD.yu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
-		}
-		else if(this.normal.cross(threeD.zu).norm()!=0){
-			this.xAxis=this.point.plus(threeD.zu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
-		}
-		this.yAxis=this.normal.cross(this.xAxis);
+		this.setAxes=function(){
+			if(this.normal.cross(threeD.xu).norm()!=0){
+				this.xAxis=this.point.plus(threeD.xu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
+			}
+			else if(this.normal.cross(threeD.yu).norm()!=0){
+				this.xAxis=this.point.plus(threeD.yu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
+			}
+			else if(this.normal.cross(threeD.zu).norm()!=0){
+				this.xAxis=this.point.plus(threeD.zu).projectOnPlane(this.point, this.normal).minus(this.point).unit();
+			}
+			this.yAxis=this.normal.cross(this.xAxis);
+		};
 		this.getHorizonLts=function(){
 			var horizonDirections=[];
 			horizonDirections[0]=this.normal.cross(viewPort.leftAxis);
@@ -449,6 +464,18 @@ var PlaneFactory={
 			}
 			return lt;
 		};
+		this.pointWithCoords=function(x,y){
+			return this.point.plus(this.xAxis.scale(x)).plus(this.yAxis.scale(y));
+		};
+		this.getPairwiseGridPoints=function(){
+			var gp=[];
+			var n=20;
+			for(var i=-n;i<=n;i++){
+				gp.push([this.pointWithCoords(i,n), this.pointWithCoords(i,-n)]);
+				gp.push([this.pointWithCoords(-n,i), this.pointWithCoords(n,i)]);
+			}
+			return gp;
+		};
 		this.draw=function(){
 			if(this.normal.cross(viewPort.normal).norm()==0){
 				if(this.point.minus(viewPort.viewPoint).dot(viewPort.normal)>=0){this.svg.full();}else{this.svg.none();}
@@ -459,6 +486,11 @@ var PlaneFactory={
 			this.svg.setHorizonPoints(nonNullHlt[0], nonNullHlt[1], this.getInPlaneLt());
 			this.svg.draw();
 		};
+		this.setColor=function(color){
+			this.color=color;
+			this.svg.setColor(color);
+			for(var i in this.gridLines){this.gridLines[i].setColor(color);}
+		}
 		this.toString=function(){
 			return '<plane reflection="0" diffusion="0.4" color="'+this.color.r+','+this.color.g+','+this.color.b+'">'+
 			'<point x="'+this.point.x+'" y="'+this.point.y+'" z="'+this.point.z+'"/>'+
@@ -472,22 +504,23 @@ var PlaneFactory={
 		this.getId=function(){
 			return id;
 		};
+		this.makeGrid=function(){
+			this.gridLines=[];
+			var pairwiseGridPoints=this.getPairwiseGridPoints();
+			for(var i in pairwiseGridPoints){
+				this.gridLines.push(LineLineFactory.makeLineLine(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1], color, 1));
+			}
+		};
+		this.setAxes();
+		this.makeGrid();
 	},
 	makePlane: function(point, normal, color){
 		var id="plane"+this.currentNumber;
 		var index=this.currentNumber;
-		for(var i=0;i<this.planes.length;i++){
-			var l=threeD.intersectionOfPlanes(point, normal, this.planes[i].point, this.planes[i].normal);
-			if(l!=null){LineLineFactory.makeLineLine(l.p1, l.p1.plus(l.baseVector),color, 2);}
-		}
 		var p=new this.Plane(point, normal, id, index, color).setSvg(svg.addPlane(0,0,0,0,0,0,0,0,id,index, color));
-		var n=20;
-		for(var i=-n;i<=n;i++){
-			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(n)), point.plus(p.xAxis.scale(i)).plus(p.yAxis.scale(-n)), color, 1);
-			LineLineFactory.makeLineLine(point.plus(p.xAxis.scale(-n)).plus(p.yAxis.scale(i)), point.plus(p.xAxis.scale(n)).plus(p.yAxis.scale(i)), color, 1);
-		}
 		this.planes[this.currentNumber]=p;
 		this.currentNumber++;
+		return p;
 	}
 };
 var SphereFactory={
@@ -519,8 +552,29 @@ var SphereFactory={
 			this.svg.setPoints(ltList);
 			this.svg.draw();
 		};
+		this.setColor=function(color){
+			this.color=color;
+			this.svg.setColor(color);
+			for(var i in this.gridLineSegments){this.gridLineSegments[i].setColor(color);}
+		}
 		this.pointWithCoords=function(lo, la){
 			return this.center.plus(threeD.xu.rotate(threeD.or, 2, la).rotate(threeD.or, 1, lo).scale(this.radius));
+		};
+		this.getPairwiseGridPoints=function(){
+			var gp=[];
+			for(var lo=-Math.PI;lo<=Math.PI;lo+=Math.PI/5){
+				var pointsOnMeridian=this.pointsOnMeridian(lo,20);
+				for(var i=1;i<pointsOnMeridian.length;i++){
+					gp.push([pointsOnMeridian[i-1], pointsOnMeridian[i]]);
+				}
+			}
+			for(var la=-Math.PI/2;la<=Math.PI/2;la+=Math.PI/5){
+				var pointsOnLatitude=this.pointsOnLatitude(la, 20);
+				for(var i=1;i<pointsOnLatitude.length;i++){
+					gp.push([pointsOnLatitude[i-1], pointsOnLatitude[i]]);
+				}
+			}
+			return gp;
 		};
 		this.pointsOnMeridian=function(lo, n){
 			var pointsOnMeridian=[];
@@ -551,27 +605,20 @@ var SphereFactory={
 		};
 		this.makeGrid=function(){
 			this.gridLineSegments=[];
-			for(var lo=-Math.PI;lo<=Math.PI;lo+=Math.PI/5){
-				var pointsOnMeridian=this.pointsOnMeridian(lo,20);
-				for(var i=1;i<pointsOnMeridian.length;i++){
-					LineSegmentFactory.makeLineSegment(pointsOnMeridian[i-1], pointsOnMeridian[i], this.color);
-				}
-			}
-			for(var la=-Math.PI/2;la<=Math.PI/2;la+=Math.PI/5){
-				var pointsOnLatitude=this.pointsOnLatitude(la, 20);
-				for(var i=1;i<pointsOnLatitude.length;i++){
-					LineSegmentFactory.makeLineSegment(pointsOnLatitude[i-1], pointsOnLatitude[i], this.color);
-				}
+			var pairwiseGridPoints=this.getPairwiseGridPoints();
+			for(var i in pairwiseGridPoints){
+				this.gridLineSegments.push(LineSegmentFactory.makeLineSegment(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1], this.color));
 			}
 		};
+		this.makeGrid();
 	},
 	makeSphere: function(center, radius, color){
 		var id="sphere"+this.currentNumber;
 		var index=this.currentNumber;
 		var s=new this.Sphere(center, radius, id, index, color).setSvg(svg.addSphere(id, index, color));
 		this.spheres[this.currentNumber]=s;
-		s.makeGrid();
 		this.currentNumber++;
+		return s;
 	}
 };
 var LightSourceFactory={
@@ -597,62 +644,45 @@ var LightSourceFactory={
 		this.lightSources[this.currentNumber]=s;
 		s.makeGrid();
 		this.currentNumber++;
+		return s;
 	}
 };
-var drawAxes=function(){
-	var orlt=viewPort.lt(threeD.or);
-	var xult=viewPort.lt(threeD.xu);
-	var yult=viewPort.lt(threeD.yu);
-	var zult=viewPort.lt(threeD.zu);
-
-	document.getElementById("xAxis").setAttribute("x1", orlt.left);
-	document.getElementById("xAxis").setAttribute("y1", orlt.top);
-
-	document.getElementById("xAxis").setAttribute("x2", xult.left);
-	document.getElementById("xAxis").setAttribute("y2", xult.top);
-	
-	document.getElementById("xAxisLabel").setAttribute("x", xult.left-5);
-	document.getElementById("xAxisLabel").setAttribute("y", xult.top-5);
-
-	document.getElementById("yAxis").setAttribute("x1", orlt.left);
-	document.getElementById("yAxis").setAttribute("y1", orlt.top);
-
-	document.getElementById("yAxis").setAttribute("x2", yult.left);
-	document.getElementById("yAxis").setAttribute("y2", yult.top);
-	
-	document.getElementById("yAxisLabel").setAttribute("x", yult.left-5);
-	document.getElementById("yAxisLabel").setAttribute("y", yult.top-5);
-
-	document.getElementById("zAxis").setAttribute("x1", orlt.left);
-	document.getElementById("zAxis").setAttribute("y1", orlt.top);
-
-	document.getElementById("zAxis").setAttribute("x2", zult.left);
-	document.getElementById("zAxis").setAttribute("y2", zult.top);
-	
-	document.getElementById("zAxisLabel").setAttribute("x", zult.left-5);
-	document.getElementById("zAxisLabel").setAttribute("y", zult.top-5);
-};
 var drawThings=function(){
-	drawAxes();
+	var orlt=viewPort.lt(threeD.or);
+	var ult=[viewPort.lt(threeD.xu), viewPort.lt(threeD.yu), viewPort.lt(threeD.zu)];
+	var nn=["x","y","z"];
+	var n, lt, i;
+	for(i=0;i<3;i++){
+		n=nn[i];
+		lt=ult[i];
+		document.getElementById(n+"Axis").setAttribute("x1", orlt.left);
+		document.getElementById(n+"Axis").setAttribute("y1", orlt.top);
+
+		document.getElementById(n+"Axis").setAttribute("x2", lt.left);
+		document.getElementById(n+"Axis").setAttribute("y2", lt.top);
+		
+		document.getElementById(n+"AxisLabel").setAttribute("x", lt.left-5);
+		document.getElementById(n+"AxisLabel").setAttribute("y", lt.top-5);
+	};
 	
 	var lineSegments=LineSegmentFactory.lineSegments;
-	for(var i=0;i<lineSegments.length;i++){
+	for(i=0;i<lineSegments.length;i++){
 		lineSegments[i].draw();
 	}
 	var lineLines=LineLineFactory.lineLines;
-	for(var i=0;i<lineLines.length;i++){
+	for(i=0;i<lineLines.length;i++){
 		lineLines[i].draw();
 	}
 	var planes=PlaneFactory.planes;
-	for(var i=0;i<planes.length;i++){
+	for(i=0;i<planes.length;i++){
 		planes[i].draw();
 	}
 	var spheres=SphereFactory.spheres;
-	for(var i=0;i<spheres.length;i++){
+	for(i=0;i<spheres.length;i++){
 		spheres[i].draw();
 	}
 	var lightSources=LightSourceFactory.lightSources;
-	for(var i=0;i<lightSources.length;i++){
+	for(i=0;i<lightSources.length;i++){
 		lightSources[i].draw();
 	}
 };
@@ -865,7 +895,7 @@ var svg={
 			var opacityString=opacity?'; opacity: '+opacity:'';
 			var sizeString=size?((size.width?'; width: '+size.width:'')+(size.height?'; height: '+size.height:'')):'';
 			var button=document.createElement('div');
-			button.setAttribute('style', positionString+'-webkit-appearance: button;cursor: hand;padding:5px;font-family:Verdana'+opacityString+sizeString);
+			button.setAttribute('style', positionString+'-webkit-appearance: button;cursor: hand;padding:5px;font-family:Arial'+opacityString+sizeString);
 			button.onmousedown=function(event){
 				self.preventDefault(event);
 				if(event.which!=1){return;}
@@ -883,12 +913,14 @@ var svg={
 		};
 		var makeTable=function(nodesInCells, rowHeights){
 			var table=document.createElement('table');
-			table.setAttribute('style', 'width:100%;height:100%');
+			table.setAttribute('style', 'width:100%;height:100%;margin:0px;padding:0px;border-spacing:0px');
 			for(var i=0;i<nodesInCells.length;i++){
 				var row=document.createElement('tr');
+				row.setAttribute('style','margin:0px;padding:0px');
 				if(rowHeights){row.setAttribute('height', rowHeights[i]);}
 				for(var j=0;j<nodesInCells[i].length;j++){
 					var td=document.createElement('td');
+					td.setAttribute('style','margin:0px;padding:0px');
 					td.appendChild(nodesInCells[i][j]);
 					row.appendChild(td);
 				}
@@ -948,12 +980,12 @@ var svg={
 		//dialog box for displaying shape list
 		(function(){
 			var shapeListDialog=document.createElement('div');
-			shapeListDialog.setAttribute('style', 'position:absolute;left:80;top:60;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100);width:40%;min-width:450;height:70%;display:none');
+			shapeListDialog.setAttribute('style', 'position:absolute;left:80;top:60;padding:0px;width:40%;min-width:450;height:70%;display:none;font-family:Arial');
 			shapeListDialog.setAttribute('id','shape_list_alert');
 			var button=makeButton({},'DONE',function(){document.getElementById('shape_list_alert').style.display='none';}, function(){}, 1, {width:100});
 			var text=document.createElement('div');
 			text.setAttribute('id','shape_list');
-			text.setAttribute('style','width:100%;height:100%;overflow:scroll;background-color:#FFFFFF');
+			text.setAttribute('style','width:100%;height:100%;overflow:scroll;padding:0px;margin:0px');
 			var table=makeTable([[text],[button]],['90%','10%']);
 			shapeListDialog.appendChild(table);
 			where.appendChild(shapeListDialog);
@@ -969,13 +1001,18 @@ var svg={
 			var makeRow={
 				"valueBox": function(name, value){
 					var box=document.createElement('div');
-					box.appendChild(document.createTextNode(name+': '+value));
+					box.appendChild(document.createTextNode(name+value));
+					return box;
+				},
+				"colorBox": function(color){
+					var box=document.createElement('div');
+					box.setAttribute('style','border: 1pt solid #000000;width:40px;height:40px;background-color: '+color.toString());
 					return box;
 				},
 				"pointBox": function(x,y,z){
 					var box=document.createElement('div');
-					//box.setAttribute('style','width:200px;height:50px');
-					var table=makeTable([[this["valueBox"]('x', x),this["valueBox"]('y',y),this["valueBox"]('z',z)]]);
+					box.setAttribute('style','border: 1pt solid rgb(150,150,150)');
+					var table=makeTable([[this["valueBox"]('x: ', x),this["valueBox"]('y: ',y),this["valueBox"]('z: ',z)]]);
 					box.appendChild(table);
 					return box;
 				},
@@ -1004,18 +1041,31 @@ var svg={
 					content.appendChild(this["propertyRow"]('point: ', this["pointBox"](point.x, point.y, point.z)));
 					var normal=plane.normal;
 					content.appendChild(this["propertyRow"]('normal:', this["pointBox"](normal.x, normal.y, normal.z)));
-					
+					content.appendChild(this["propertyRow"]('color:', this["colorBox"](plane.color)));
 					return this["rowContainer"]("plane",content);
 				},
 				"sphere": function(sphere){
 					var content=document.createElement("div");
 					var center=sphere.center;
 					content.appendChild(this["propertyRow"]('center: ', this["pointBox"](center.x, center.y, center.z)));
-					//content.appendChild(this["propertyRow"]('radius: ', this["pointBox"](center.x, center.y, center.z)));
+					content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', sphere.radius)));
+					content.appendChild(this["propertyRow"]('color:', this["colorBox"](sphere.color)));
 					return this["rowContainer"]("sphere",content);
+				},
+				"lightsource": function(lightSource){
+					var content=document.createElement("div");
+					var center=lightSource.center;
+					content.appendChild(this["propertyRow"]('location: ', this["pointBox"](center.x, center.y, center.z)));
+					content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', lightSource.radius)));
+					content.appendChild(this["propertyRow"]('color:', this["colorBox"](lightSource.color)));
+					return this["rowContainer"]("light source",content);
 				}
 			};
 			var rows=[];
+			var lightSources=LightSourceFactory.lightSources;
+			for(var i=0;i<lightSources.length;i++){
+				rows.push(makeRow["lightsource"](lightSources[i]));
+			}
 			var planes=PlaneFactory.planes;
 			for(var i=0;i<planes.length;i++){
 				rows.push(makeRow["plane"](planes[i]));
@@ -1055,9 +1105,11 @@ var svg={
 		var scaleMoverDown=newMover(function(a){viewPort.scale(a);drawThings();}, 0.99, function(a){return a*0.99;});
 		where.appendChild(makeButton({right:20,top:50},'move in',scaleMoverDown.onmousedown, scaleMoverDown.onmouseup, 0.5));
 		
-		var rotatorLeft=newMover(function(a){viewPort.rotY(a);drawThings();}, 0.01);
+		var rotatorLeft=newMover(function(a){viewPort.rotY(a);drawThings();}, 0.01, function(a){return a+0.01;});
 		where.appendChild(makeButton({left:20,bottom:20},'<', rotatorLeft.onmousedown, rotatorLeft.onmouseup, 0.5));
 		
+		var rotatorClock=newMover(function(a){viewPort.rotZ(a);drawThings();}, 0.01,function(a){return a+0.01});
+		where.appendChild(makeButton({left:50,bottom:20}, 'rot. clockwise', rotatorClock.onmousedown, rotatorClock.onmouseup, 0.5));
 		document.body.onload=function(){
 			console.log("[body] onload begin!");
 			//loading message
@@ -1071,13 +1123,13 @@ var svg={
 			})();
 			(function(){
 				console.log("begin adding shapes...");
-				PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(80,20,20));
+				PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(80,20,20)).setColor(new Color(80,80,20));
 				//SphereFactory.makeSphere(new threeD.Point(0,0,1), 0.1, new Color(20,80,20));
 				//SphereFactory.makeSphere(new threeD.Point(1,0,1), 0.1, new Color(20,80,20));
 				//SphereFactory.makeSphere(threeD.or, 0.3,new Color(20,80,20));
-				LightSourceFactory.makeLightSource(new threeD.Point(0,15,0), 3,new Color(255,255,255));
+				LightSourceFactory.makeLightSource(new threeD.Point(0,15,0), 3,new Color(255,255,255)).setColor(new Color(100,100,255));
 				SphereFactory.makeSphere(new threeD.Point(-2,2,0),1,new Color(20,80,20));
-				SphereFactory.makeSphere(new threeD.Point(2,2,0),1,new Color(20,80,20));
+				SphereFactory.makeSphere(new threeD.Point(2,2,0),1,new Color(20,80,20)).setColor(new Color(20,20,80));
 				//PlaneFactory.makePlane(new threeD.Point(5,0,0), new threeD.Point(-1,0,0), new Color(100,0,0));
 				//PlaneFactory.makePlane(new threeD.Point(0,0,5), new threeD.Point(0,0,-1), new Color(0,100,0));
 				console.log("finish adding shapes");
