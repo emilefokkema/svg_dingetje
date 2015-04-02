@@ -5,14 +5,7 @@
 <body style="overflow: hidden;background-color:rgb(0,0,0)">
 	<div style="border:1px solid #000000;width:100%;height:100%" id="viewPort">
 		
-<!--<svg ontouchstart="svg.onTouchStart(event)" ontouchmove="svg.onTouchMove(event)" ontouchend="svg.onTouchEnd(event)" onMouseDown="svg.onMouseDown(event)" onMouseUp="svg.onMouseUp()" onMouseMove="svg.onMouseMove(event)" id="viewPortSvg" width="100%" height="100%" style="border: 1px solid #000000">
-<line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(100,100,100);stroke-width:0.5" id="xAxis"/>
-<text x="10" y="10" fill="rgb(100,100,100)" id="xAxisLabel">x</text>
-<line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(100,100,100);stroke-width:0.5" id="yAxis"/>
-<text x="10" y="10" fill="rgb(100,100,100)" id="yAxisLabel">y</text>
-<line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(100,100,100);stroke-width:0.5" id="zAxis"/>
-<text x="10" y="10" fill="rgb(100,100,100)" id="zAxisLabel">z</text>
-</svg>-->
+
 
 </div>
 
@@ -867,10 +860,12 @@ var svg={
 
 		
 		
-		var makeButton=function(offset, text, onmousedown, onmouseup, opacity){
+		var makeButton=function(offset, text, onmousedown, onmouseup, opacity, size){
 			var positionString=(offset.left||offset.right)?('position:absolute; '+(offset.left?'left: '+offset.left+'; ':'right: '+offset.right+'; ')+(offset.top?'top: '+offset.top+'; ':'bottom: '+offset.bottom+'; ')):'';
+			var opacityString=opacity?'; opacity: '+opacity:'';
+			var sizeString=size?((size.width?'; width: '+size.width:'')+(size.height?'; height: '+size.height:'')):'';
 			var button=document.createElement('div');
-			button.setAttribute('style', positionString+'-webkit-appearance: button;cursor: hand;padding:5px;font-family:Verdana'+(opacity?'; opacity: '+opacity:''));
+			button.setAttribute('style', positionString+'-webkit-appearance: button;cursor: hand;padding:5px;font-family:Verdana'+opacityString+sizeString);
 			button.onmousedown=function(event){
 				self.preventDefault(event);
 				if(event.which!=1){return;}
@@ -953,12 +948,12 @@ var svg={
 		//dialog box for displaying shape list
 		(function(){
 			var shapeListDialog=document.createElement('div');
-			shapeListDialog.setAttribute('style', 'position:absolute;left:80;top:60;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100);width:70%;height:70%;display:none');
+			shapeListDialog.setAttribute('style', 'position:absolute;left:80;top:60;background-color:rgb(200,200,200);padding:5px;border:1pt solid rgb(100,100,100);width:40%;min-width:450;height:70%;display:none');
 			shapeListDialog.setAttribute('id','shape_list_alert');
-			var button=makeButton({},'DONE',function(){document.getElementById('shape_list_alert').style.display='none';});
+			var button=makeButton({},'DONE',function(){document.getElementById('shape_list_alert').style.display='none';}, function(){}, 1, {width:100});
 			var text=document.createElement('div');
 			text.setAttribute('id','shape_list');
-			text.setAttribute('style','width:100%;height:100%;overflow:scroll');
+			text.setAttribute('style','width:100%;height:100%;overflow:scroll;background-color:#FFFFFF');
 			var table=makeTable([[text],[button]],['90%','10%']);
 			shapeListDialog.appendChild(table);
 			where.appendChild(shapeListDialog);
@@ -972,15 +967,15 @@ var svg={
 		};
 		var sceneShapeList=function(){
 			var makeRow={
+				"valueBox": function(name, value){
+					var box=document.createElement('div');
+					box.appendChild(document.createTextNode(name+': '+value));
+					return box;
+				},
 				"pointBox": function(x,y,z){
 					var box=document.createElement('div');
 					//box.setAttribute('style','width:200px;height:50px');
-					var coordinateNode=function(name, value){
-						var node=document.createElement('div');
-						node.appendChild(document.createTextNode(name+': '+value));
-						return node;
-					};
-					var table=makeTable([[coordinateNode('x', x),coordinateNode('y',y),coordinateNode('z',z)]]);
+					var table=makeTable([[this["valueBox"]('x', x),this["valueBox"]('y',y),this["valueBox"]('z',z)]]);
 					box.appendChild(table);
 					return box;
 				},
@@ -993,7 +988,7 @@ var svg={
 				},
 				"rowContainer": function(title, content){
 					var row=document.createElement('div');
-					row.setAttribute('style','border:1pt solid #000000;margin:2px;padding:2px;background-color:rgb(230,230,230)');
+					row.setAttribute('style','border:1pt solid #000000;border-radius:3px;margin:5px;padding:2px;background-color:rgb(230,230,230)');
 					var titleDiv=document.createElement('div');
 					titleDiv.setAttribute('style','font-weight:bold');
 					titleDiv.appendChild(document.createTextNode(title));
@@ -1016,7 +1011,7 @@ var svg={
 					var content=document.createElement("div");
 					var center=sphere.center;
 					content.appendChild(this["propertyRow"]('center: ', this["pointBox"](center.x, center.y, center.z)));
-					
+					//content.appendChild(this["propertyRow"]('radius: ', this["pointBox"](center.x, center.y, center.z)));
 					return this["rowContainer"]("sphere",content);
 				}
 			};
