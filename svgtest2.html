@@ -3,11 +3,8 @@
 	<title>SVG test 2</title>
 </head>
 <body style="overflow: hidden;background-color:rgb(0,0,0)">
-	<div style="position:absolute;border:1px solid #000000;width:100%;height:100%" id="viewPort">
-		
-
-
-</div>
+	<div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000;border:1pt solid #999999" id="viewPort"></div>
+	<div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000;border:1pt solid #999999" id="viewPort2"></div>
 
 <script language="JavaScript">
 var SvgScene=function(){
@@ -16,7 +13,8 @@ var SvgScene=function(){
 		var g=g_;
 		var b=b_;
 		return {
-			toString: function(){return "rgb("+r+", "+g+", "+b+")";}
+			toString: function(){return "rgb("+r+", "+g+", "+b+")";},
+			toString2: function(){return r+","+g+","+b;}
 		};
 	}
 
@@ -59,7 +57,7 @@ var SvgScene=function(){
 					if(axis==2){
 						var npx=op.x()*Math.cos(angle)-op.y()*Math.sin(angle);
 						var npy=op.y()*Math.cos(angle)+op.x()*Math.sin(angle);
-						return around.plus(Point(npx, npy, op.z));
+						return around.plus(Point(npx, npy, op.z()));
 					}
 				},
 				rotateWithRotation: function(r){
@@ -199,7 +197,7 @@ var SvgScene=function(){
 			var step2=plt(lt2);
 			var a=step2.minus(step1);
 			var b=plt(lt3).minus(step1);
-			if(a.cross(b).z>0){
+			if(a.cross(b).z()>0){
 				var step3=step2.plus(Point(-a.y(), a.x(), 0));
 			}else{
 				var step3=step2.plus(Point(a.y(), -a.x(), 0));
@@ -261,7 +259,6 @@ var SvgScene=function(){
 		};
 		var lt=function(point){
 			var line=Line(viewPoint, point);
-			console.log(normal);
 			if(line.baseVector().perpendicularTo(normal)){return null;}
 			var t=-normal.dot(viewPoint.minus(leftTop))/normal.dot(line.baseVector());
 			if(t<0){return null;}
@@ -355,32 +352,638 @@ var SvgScene=function(){
 				setFromTo: setFromTo,
 				draw: draw,
 				setColor: setColor,
-				setSvg: function(){setSvg(); return this;}
+				setSvg: function(svg_){setSvg(svg_); return this;}
 			};
 		};
 		var makeLineSegment=function(from, to, color){
 			var id="lineSegment"+currentNumber;
 			var index=currentNumber;
-			var ls=LineSegment(from, to).setSvg(svg.addLineSegment(0,0,0,0, id, index, color));
+			var svgThing=svg.addLineSegment(0,0,0,0, id, index, color);
+			var ls=LineSegment(from, to).setSvg(svgThing);
 			lineSegments[currentNumber]=ls;
 			currentNumber++;
 			return ls;
 		};
 		return {
 			makeLineSegment: makeLineSegment,
-			lineSegments: lineSegments
+			lineSegments: function(){return lineSegments;}
 		};
 	})();
 
-	return {
-		viewPort: viewPort,
-		Point: Point,
-		LineSegmentFactory:LineSegmentFactory,
-		Color: Color
+	var LineLineFactory=(function(){
+		var lineLines=[];
+		var currentNumber=0;
+		var LineLine=function(p1_, p2_){
+			var p1,p2,line,thisSvg;
+			var setFromTo=function(p1_,p2_){
+				p1=p1_;
+				p2=p2_;
+				line=Line(p1_,p2_);
+			};
+			var draw=function(){
+				var visible=viewPort.getVisiblePointsOn(line);
+				var p1lt=viewPort.lt(p1);
+				if(p1lt==null){p1lt=visible[0];}
+				var p2lt=viewPort.lt(p2);
+				if(p2lt==null){p2lt=visible[1];}
+				var hlt=viewPort.horizonLt(line);
+				if(p1lt==null&&p2lt==null){
+					thisSvg.none();
+				}else{
+					thisSvg.setFromTo(p1lt, p2lt);
+					thisSvg.makeInfinite(hlt);
+				}
+				thisSvg.draw();
+			};
+			var setColor=function(color){
+				thisSvg.setColor(color);
+			};
+			var setSvg=function(svg_){
+				thisSvg=svg_;
+			};
+			setFromTo(p1_,p2_);
+			return {
+				setFromTo: setFromTo,
+				draw: draw,
+				setColor: setColor,
+				setSvg: function(svg_){setSvg(svg_); return this;}
+			};
+		};
+		var makeLineLine=function(p1, p2, color, thickness){
+			var id="lineLine"+currentNumber;
+			var index=currentNumber;
+			var svgThing=svg.addLineLine(0,0,0,0, id, index, color, thickness);
+			var ll=LineLine(p1, p2).setSvg(svgThing);
+			lineLines[currentNumber]=ll;
+			currentNumber++;
+			return ll;
+		};
+		return {
+			makeLineLine: makeLineLine,
+			lineLines: function(){return lineLines;}
+		};
+	})();
+
+	var PlaneFactory=(function(){
+		var planes=[];
+		var currentNumber=0;
+		var Plane=function(point_, normal_, color_){
+			var point, normal, color, thisSvg, gridLines, xAxis, yAxis;
+			point=point_;
+			normal=normal_;
+			color=color_;
+			var setAxes=function(){
+				if(normal.cross(xu).norm()!=0){
+					xAxis=point.plus(xu).projectOnPlane(point, normal).minus(point).unit();
+				}
+				else if(normal.cross(yu).norm()!=0){
+					xAxis=point.plus(yu).projectOnPlane(point, normal).minus(point).unit();
+				}
+				else if(normal.cross(zu).norm()!=0){
+					xAxis=point.plus(zu).projectOnPlane(point, normal).minus(point).unit();
+				}
+				yAxis=normal.cross(xAxis);
+			};
+			var getHorizonLts=function(){
+				var horizonDirections=[];
+				horizonDirections[0]=normal.cross(viewPort.leftAxis());
+				horizonDirections[1]=normal.cross(horizonDirections[0]);
+				horizonDirections[2]=horizonDirections[0].plus(horizonDirections[1]);
+				horizonDirections[3]=normal.cross(viewPort.topAxis());
+				horizonDirections[4]=normal.cross(horizonDirections[3]);
+				horizonDirections[5]=horizonDirections[3].plus(horizonDirections[4]);
+				var nonNullHlt=[];
+				var count=0;
+				for(var i=0;i<horizonDirections.length;i++){
+					var hlt=viewPort.horizonLt(Line(point, point.plus(horizonDirections[i])));
+					if(hlt!=null){
+						nonNullHlt[count++]=hlt;
+					}
+					if(count==2){break;}
+				}
+				return nonNullHlt;
+			};
+			var getInPlaneLt=function(){
+				var lt_;
+				var inPlane1=Line(viewPort.leftTop(), viewPort.leftTop().plus(viewPort.leftAxis())).intersectWithPlane(point, normal);
+				var inPlane2=Line(viewPort.leftTop(), viewPort.leftTop().plus(viewPort.topAxis())).intersectWithPlane(point, normal);
+				if(inPlane1==null){
+					lt_=viewPort.lt(inPlane2);
+				}else{
+					lt_=viewPort.lt(inPlane1);
+				}
+				return lt_;
+			};
+			var pointWithCoords=function(x,y){
+				return point.plus(xAxis.scale(x)).plus(yAxis.scale(y));
+			};
+			var getPairwiseGridPoints=function(){
+				var gp=[];
+				var n=20;
+				for(var i=-n;i<=n;i++){
+					gp.push([pointWithCoords(i,n), pointWithCoords(i,-n)]);
+					gp.push([pointWithCoords(-n,i), pointWithCoords(n,i)]);
+				}
+				return gp;
+			};
+			var draw=function(){
+				if(normal.cross(viewPort.normal()).norm()==0){
+					if(point.minus(viewPort.viewPoint()).dot(viewPort.normal())>=0){thisSvg.full();}else{thisSvg.none();}
+					thisSvg.draw();
+					return;
+				}
+				var nonNullHlt=getHorizonLts();
+				thisSvg.setHorizonPoints(nonNullHlt[0], nonNullHlt[1], getInPlaneLt());
+				thisSvg.draw();
+			};
+			var setColor=function(color_){
+				color=color_;
+				thisSvg.setColor(color_);
+				for(var i in gridLines){gridLines[i].setColor(color_);}
+			};
+			var toString=function(){
+				return '<plane reflection="0" diffusion="0.4" color="'+color.toString2()+'">'+
+				'<point x="'+point.x()+'" y="'+point.y()+'" z="'+point.z()+'"/>'+
+				'<normal x="'+normal.x()+'" y="'+normal.y()+'" z="'+normal.z()+'"/>'+
+				'</plane>';
+			};
+			var setSvg=function(svg_){
+				thisSvg=svg_;
+			};
+			var setGrid=function(){
+				var pairwiseGridPoints=getPairwiseGridPoints();
+				for(var i in pairwiseGridPoints){
+					gridLines[i].setFromTo(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1]);
+				}
+			};
+			var makeGrid=function(){
+				gridLines=[];
+				var pairwiseGridPoints=getPairwiseGridPoints();
+				for(var i in pairwiseGridPoints){
+					gridLines.push(LineLineFactory.makeLineLine(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1], color, 1));
+				}
+			};
+			setAxes();
+			makeGrid();
+			return {
+				draw: draw,
+				setColor: setColor,
+				setSvg: function(svg_){setSvg(svg_);return this;},
+				toString: toString
+			};
+		};
+		var makePlane=function(point, normal, color){
+			var id="plane"+currentNumber;
+			var index=currentNumber;
+			var svgThing=svg.addPlane(0,0,0,0,0,0,0,0,id,index, color);
+			var p=Plane(point, normal, color).setSvg(svgThing);
+			planes[currentNumber]=p;
+			currentNumber++;
+			return p;
+		};
+		return {
+			makePlane: makePlane,
+			planes: function(){return planes;}
+		};
+	})();
+
+	var SphereFactory=(function(){
+		var spheres=[];
+		var currentNumber=0;
+		var Sphere=function(center_, radius_, color_){
+			var center, radius, color, gridLineSegments, thisSvg;
+			center=center_;
+			radius=radius_;
+			color=color_;
+			var draw=function(){
+				var toCenter=center.minus(viewPort.viewPoint());
+				var d=toCenter.norm();
+				var r=radius;
+				if(d<=r){thisSvg.none();thisSvg.draw();return;}
+				var startingPoint=center.plus(toCenter.cross(viewPort.leftAxis()).unit().scale(d*r/Math.sqrt(d*d-r*r)));
+				var pointList=[startingPoint];
+				var n=24;
+				var rot=OtherRotation(viewPort.viewPoint(), toCenter, 2*Math.PI/n);
+				for(var i=1;i<n;i++){
+					startingPoint=startingPoint.rotateWithOtherRotation(rot);
+					pointList[pointList.length]=startingPoint;
+				}
+				var ltList=[];
+				for(var i=0;i<pointList.length;i++){
+					var lt=viewPort.lt(pointList[i]);
+					if(lt!=null){ltList[ltList.length]=lt;}
+				}
+				thisSvg.setPoints(ltList);
+				thisSvg.draw();
+			};
+			var setColor=function(color_){
+				color=color_;
+				thisSvg.setColor(color);
+				for(var i in gridLineSegments){gridLineSegments[i].setColor(color_);}
+			};
+			var pointWithCoords=function(lo, la){
+				return center.plus(xu.rotate(or, 2, la).rotate(or, 1, lo).scale(radius));
+			};
+			var getPairwiseGridPoints=function(){
+				var gp=[];
+				for(var lo=-Math.PI;lo<=Math.PI;lo+=Math.PI/8){
+					var pointsOnMeridian_=pointsOnMeridian(lo,20);
+					for(var i=1;i<pointsOnMeridian_.length;i++){
+						gp.push([pointsOnMeridian_[i-1], pointsOnMeridian_[i]]);
+					}
+				}
+				for(var la=-Math.PI/2;la<=Math.PI/2;la+=Math.PI/8){
+					var pointsOnLatitude_=pointsOnLatitude(la, 20);
+					for(var i=1;i<pointsOnLatitude_.length;i++){
+						gp.push([pointsOnLatitude_[i-1], pointsOnLatitude_[i]]);
+					}
+				}
+				return gp;
+			};
+			var pointsOnMeridian=function(lo, n){
+				var pointsOnMeridian_=[];
+				for(var la=-Math.PI/2; la<=Math.PI/2; la+=Math.PI/n){
+					pointsOnMeridian_[pointsOnMeridian_.length]=pointWithCoords(lo,la);
+				}
+				return pointsOnMeridian_;
+			};
+			var pointsOnLatitude=function(la, n){
+				var pointsOnLatitude_=[];
+				for(var lo=-Math.PI;lo<=Math.PI;lo+=2*Math.PI/n){
+					pointsOnLatitude_[pointsOnLatitude_.length]=pointWithCoords(lo,la);
+				}
+				return pointsOnLatitude_;
+			};
+			var setSvg=function(svg_){thisSvg=svg_;};
+			var toString=function(){
+				var s='<sphere reflection="0" diffusion="0.4" color="'+color.toString2()+'" radius="'+radius+'">'+
+				'<center x="'+center.x()+'" y="'+center.y()+'" z="'+center.z()+'" />'+
+				'</sphere>';
+				return s;
+			};
+			var setGrid=function(){
+				var pairwiseGridPoints=getPairwiseGridPoints();
+				for(var i in pairwiseGridPoints){
+					gridLineSegments[i].setFromTo(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1]);
+				}
+			};
+			var makeGrid=function(){
+				gridLineSegments=[];
+				var pairwiseGridPoints=getPairwiseGridPoints();
+				for(var i in pairwiseGridPoints){
+					gridLineSegments.push(LineSegmentFactory.makeLineSegment(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1], color));
+				}
+			};
+			makeGrid();
+			return {
+				draw: draw,
+				setColor: setColor,
+				setSvg: function(svg_){setSvg(svg_);return this;},
+				toString: toString
+			};
+		};
+		var makeSphere=function(center, radius, color){
+			var id="sphere"+currentNumber;
+			var index=currentNumber;
+			var svgThing=svg.addSphere(id,index, color);
+			var s=Sphere(center, radius, color).setSvg(svgThing);
+			spheres[currentNumber]=s;
+			currentNumber++;
+			return s;
+		};
+		return {
+			makeSphere: makeSphere,
+			spheres: function(){return spheres;}
+		};
+	})();
+
+	var drawThings=function(){
+		svg.drawAxes();
+		var i;
+		var lineSegments=LineSegmentFactory.lineSegments();
+		for(i=0;i<lineSegments.length;i++){
+			lineSegments[i].draw();
+		}
+		var lineLines=LineLineFactory.lineLines();
+		for(i=0;i<lineLines.length;i++){
+			lineLines[i].draw();
+		}
+		var planes=PlaneFactory.planes();
+		for(i=0;i<planes.length;i++){
+			planes[i].draw();
+		}
+		var spheres=SphereFactory.spheres();
+		for(i=0;i<spheres.length;i++){
+			spheres[i].draw();
+		}
 	};
+
+	var svg=(function(){
+		var w,h,whereSvg,where,drawAxes;
+		var mouseDown=false;
+		var preventDefault=function(evt){evt.preventDefault();};
+		var mouseLocation=(function(){var oldl=0;var oldt=0;return {setOldLt: function(l, t){oldl=l;oldt=t;},oldl: function(){return oldl;},oldt:function(){return oldt;}};})();
+		var lineSegments=[];
+		var lineLines=[];
+		var planes=[];
+		var spheres=[];
+		var lightSources=[];
+		var onMyMouseMove=function(l, t){
+			if(mouseDown){
+				var dl=l-mouseLocation.oldl();
+				var dt=t-mouseLocation.oldt();
+				viewPort.rotY(dl/1000);
+				viewPort.rotX(-dt/1000);
+				drawThings();
+				mouseLocation.setOldLt(l, t);
+			}
+		};
+		var onMyMouseDown=function(l, t){
+			mouseLocation.setOldLt(l, t);mouseDown=true;
+		};
+		var onMyMouseUp=function(){mouseDown=false;};
+		var onMouseDown=function(evt){
+			preventDefault(evt);
+			var l=evt.clientX;
+			var t=evt.clientY;
+			onMyMouseDown(l,t);
+		};
+		var onMouseUp=function(){onMyMouseUp();};
+		var onMouseMove=function(evt){
+			preventDefault(evt);
+			var l=evt.clientX;
+			var t=evt.clientY;
+			onMyMouseMove(l,t);
+		};
+		var onTouchStart=function(evt){
+			preventDefault(evt);
+			var touches=evt.changedTouches;
+			if(touches.length==1){
+				var touch=evt.changedTouches[0];
+				onMyMouseDown(touch.clientX, touch.clientY);
+			}
+		};
+		var onTouchEnd=function(evt){onMyMouseUp();};
+		var onTouchMove=function(evt){
+			preventDefault(evt);
+			var touches=evt.changedTouches;
+			if(touches.length==1){
+				var touch=evt.changedTouches[0];
+				onMyMouseMove(touch.clientX, touch.clientY);
+			}
+		};
+		var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
+			var svgl={};
+			var svgElement=whereSvg.appendChild((function(){
+				var NS="http://www.w3.org/2000/svg";
+				var line=document.createElementNS(NS, 'line');
+				line.setAttribute('x1', l1);
+				line.setAttribute('y1', t1);
+				line.setAttribute('x2', l2);
+				line.setAttribute('y2', t2);
+				line.setAttribute('style','stroke: '+color.toString()+'; stroke-width: '+thickness+'; stroke-opacity: 1.5');
+				return line;
+			})());
+			var lt1={left:l1,top:t1};
+			var lt2={left:l2,top:t1};
+			svgl.setFromTo=function(f,t){lt1=f;lt2=t;};
+			svgl.draw=function(){
+				svgElement.setAttribute("x1", lt1.left);
+				svgElement.setAttribute("y1", lt1.top);
+				svgElement.setAttribute("x2", lt2.left);
+				svgElement.setAttribute("y2", lt2.top);
+			};
+			svgl.setColor=function(color1){
+				svgElement.setAttribute('style','stroke:'+color1.toString()+';stroke-width: '+thickness+';stroke-opacity: 1.5');
+			};
+			svgl.makeInfinite=function(hlt){
+				var nlt=twoD.makeInfinite(lt1, lt2, hlt);
+				lt1=nlt[0];
+				lt2=nlt[1];
+			};
+			svgl.none=function(){svgl.setFromTo({left:0,top:0},{left:0,top:0});};
+			return svgl;
+		};
+		var SvgPlane=function(l1, t1, l2, t2, l3, t3, l4, t4, id, color){
+			var svgpl={};
+			var svgElement=whereSvg.appendChild((function(){
+				var NS="http://www.w3.org/2000/svg";
+				var polygon=document.createElementNS(NS, 'polygon');
+				polygon.setAttribute('points',l1+','+t1+' '+l2+','+t2+' '+l3+','+t3+' '+l4+','+t4);
+				polygon.setAttribute('style','fill: '+color.toString()+'; fill-opacity: 0.4');
+				//polygon.setAttribute('id',id);
+				return polygon;
+			})());
+			var lt1={left:l1,top:t1};
+			var lt2={left:l2,top:t2};
+			var lt3={left:l3,top:t3};
+			var lt4={left:l4,top:t4};
+			svgpl.setPoints=function(lt1_, lt2_, lt3_, lt4_){
+				lt1=lt1_;
+				lt2=lt2_;
+				lt3=lt3_;
+				lt4=lt4_;
+			};
+			svgpl.full=function(){
+				var ltcorners=twoD.ltcorners();
+				svgpl.setPoints(ltcorners[0], ltcorners[1], ltcorners[2], ltcorners[3]);
+			};
+			svgpl.none=function(){
+				svgpl.setPoints({left:0,top:0},{left:0,top:0},{left:0,top:0},{left:0,top:0});
+			};
+			svgpl.setHorizonPoints=function(lt1_, lt2_, inPlaneLt){
+				var ltlt=twoD.makeInfinite(lt1_, lt2_, null);
+				var otherTwo=twoD.completeTheSquare(ltlt[0], ltlt[1], inPlaneLt);
+				svgpl.setPoints(ltlt[0], ltlt[1], otherTwo[0], otherTwo[1]);
+			
+			};
+			svgpl.draw=function(){
+				svgElement.setAttribute("points", lt1.left+","+lt1.top+" "+lt2.left+","+lt2.top+" "+lt3.left+","+lt3.top+" "+lt4.left+","+lt4.top);
+			};
+			svgpl.setColor=function(color1){
+				svgElement.setAttribute('style', 'fill: '+color1.toString()+';fill-opacity: 0.4');
+			};
+			return svgpl;
+		};
+		var SvgSphere=function(color){
+			var svgsph={};
+			var svgElement=whereSvg.appendChild((function(){
+				var NS="http://www.w3.org/2000/svg";
+				var polygon=document.createElementNS(NS, 'polygon');
+				polygon.setAttribute('points','0,0 0,0 0,0');
+				polygon.setAttribute('style','fill: '+color.toString()+'; fill-opacity: 0.4');
+				return polygon;
+			})());
+			var points=[{left:0,top:0},{left:0,top:0},{left:0,top:0}];
+			svgsph.setPoints=function(list){
+				points=list;
+			};
+			svgsph.none=function(){svgsph.setPoints([{left:0,top:0},{left:0,top:0},{left:0,top:0}]);};
+			svgsph.draw=function(){
+				var s="";
+				for(i in points){s+=points[i].left+","+points[i].top+" ";}
+				svgElement.setAttribute("points", s);
+			};
+			svgsph.setColor=function(color1){
+				svgElement.setAttribute('style', 'fill: '+color1.toString()+';fill-opacity: 0.4');
+			};
+			return svgsph;
+		};
+		var addPlane=function(l1, t1, l2, t2, l3, t3, l4, t4, id, index, color){
+			var s=SvgPlane(l1, t1, l2, t2, l3, t3, l4, t4, id, color);
+			planes[index]=s;
+			return s;
+		};
+		var addSphere=function(id, index, color){
+			var s=SvgSphere(color);
+			spheres.push(s);
+			return s;
+		};
+		var addLightSource=function(id, index, color){
+			var s=SvgSphere(color);
+			lightSources.push(s);
+			return s;
+		};
+		var addLineSegment=function(l1,t1,l2,t2, id, index, color){
+			var s=SvgLine(l1,t1,l2,t2,id,color, 1);
+			lineSegments[index]=s;
+			return s;
+		};
+		var addLineLine=function(l1,t1,l2,t2,id,index,color, thickness){
+			var s=SvgLine(l1,t1,l2,t2,id,color, thickness);
+			lineLines[index]=s;
+			return s;
+		};
+		var svgObject={};
+		var init=function(where_){
+			where=where_;
+			var makeAxisAndLabel=function(axisName){
+				var NS="http://www.w3.org/2000/svg";
+				var line=document.createElementNS(NS,'line');
+				line.setAttribute('x1', 0);
+				line.setAttribute('y1', 0);
+				line.setAttribute('x2', 0);
+				line.setAttribute('y2', 0);
+				line.setAttribute('style', 'stroke:rgb(100,100,100);stroke-width:0.5');
+				//line.setAttribute('id',axisName+'Axis');
+				var text=document.createElementNS(NS,'text');
+				text.setAttribute('x', 0);
+				text.setAttribute('y', 0);
+				text.setAttribute('fill', 'rgb(100,100,100)');
+				//text.setAttribute('id', axisName+'AxisLabel');
+				text.appendChild(document.createTextNode(axisName));
+				return {axis:line,label:text};
+			};
+			whereSvg=(function(){
+				var NS="http://www.w3.org/2000/svg";
+				var svgNode=document.createElementNS(NS,"svg");
+				svgNode.ontouchstart=function(event){onTouchStart(event);};
+				svgNode.ontouchmove=function(event){onTouchMove(event);};
+				svgNode.ontouchend=function(event){onTouchEnd(event);};
+				svgNode.onmousedown=function(event){onMouseDown(event);};
+				svgNode.onmouseup=function(event){onMouseUp(event);};
+				svgNode.onmousemove=function(event){onMouseMove(event);};
+				svgNode.setAttribute('width','100%');
+				svgNode.setAttribute('height','100%');
+				svgNode.setAttribute('style', 'border: 1px solid #000000');
+				return where.appendChild(svgNode);
+			})();
+
+			var axesAndLabels=(function(){
+				var svgNode=whereSvg;
+				var axesAndLabels=[];
+
+				var al1=makeAxisAndLabel('x');
+				axesAndLabels.push({axis:svgNode.appendChild(al1.axis),label:svgNode.appendChild(al1.label)});
+
+				var al2=makeAxisAndLabel('y');
+				axesAndLabels.push({axis:svgNode.appendChild(al2.axis),label:svgNode.appendChild(al2.label)});
+
+				var al3=makeAxisAndLabel('z');
+				axesAndLabels.push({axis:svgNode.appendChild(al3.axis),label:svgNode.appendChild(al3.label)});
+
+				return axesAndLabels;
+			})();
+
+			drawAxes=function(){
+				var orlt=viewPort.lt(or);
+				var ult=[viewPort.lt(xu), viewPort.lt(yu), viewPort.lt(zu)];
+				var nn=["x","y","z"];
+				var n, lt, i, axis, label;
+				for(i=0;i<3;i++){
+					n=nn[i];
+					lt=ult[i];
+					axis=axesAndLabels[i].axis;
+					label=axesAndLabels[i].label;
+					axis.setAttribute("x1", orlt.left);
+					axis.setAttribute("y1", orlt.top);
+
+					axis.setAttribute("x2", lt.left);
+					axis.setAttribute("y2", lt.top);
+					
+					label.setAttribute("x", lt.left-5);
+					label.setAttribute("y", lt.top-5);
+				};
+			};
+			svgObject.drawAxes=drawAxes;
+			var currentOnLoad=whereSvg.onload;
+			whereSvg.onload=function(){
+				if(currentOnLoad){currentOnLoad();}
+				(function(){
+					console.log("begin adding shapes...");
+					var l=0.25;
+					PlaneFactory.makePlane(Point(0,-1,0),Point(0,1,0),Color(0,255,0));
+
+					LineSegmentFactory.makeLineSegment(Point(l,l,l),Point(-l,l,l),Color(255,0,0));
+					LineSegmentFactory.makeLineSegment(Point(-l,l,l),Point(-l,-l,l),Color(255,0,0));
+					LineSegmentFactory.makeLineSegment(Point(-l,-l,l),Point(l,-l,l),Color(255,0,0));
+					LineSegmentFactory.makeLineSegment(Point(l,-l,l),Point(l,l,l),Color(255,0,0));
+
+					LineSegmentFactory.makeLineSegment(Point(l,l,-l),Point(-l,l,-l),Color(255,0,0));
+					LineSegmentFactory.makeLineSegment(Point(-l,l,-l),Point(-l,-l,-l),Color(255,0,0));
+					LineSegmentFactory.makeLineSegment(Point(-l,-l,-l),Point(l,-l,-l),Color(255,0,0));
+					LineSegmentFactory.makeLineSegment(Point(l,-l,-l),Point(l,l,-l),Color(255,0,0));
+
+					SphereFactory.makeSphere(Point(l,l,l), 0.1,Color(255,255,0));
+
+					LineLineFactory.makeLineLine(Point(l,l,l),Point(-l,-l,-l),Color(255,0,0),2);
+					console.log("finish adding shapes");
+				})();
+				var w_=whereSvg.offsetWidth;
+				var h_=whereSvg.offsetHeight;
+				svgObject.setWh(w_,h_);
+				viewPort.setWh(w_,h_);
+				twoD.setWh(w_,h_);
+				drawThings();
+			};
+
+		};
+		svgObject.setWh=function(w_, h_){w=w_,h=h_;};
+		svgObject.addLineSegment=addLineSegment;
+		svgObject.addLineLine=addLineLine;
+		svgObject.addPlane=addPlane;
+		svgObject.addSphere=addSphere;
+		svgObject.addLightSource=addLightSource;
+		svgObject.init=init;
+		return svgObject;
+	})();
+
+	var sc={
+		init: function(where){
+			svg.init(where);
+			delete sc.init;
+		}
+	};
+	return sc;
 };
 
-var scene1=SvgScene();
+var scene1=new SvgScene();
+scene1.init(document.getElementById("viewPort"));
+
+var scene2=new SvgScene();
+scene2.init(document.getElementById("viewPort2"));
+
+
 
 </script>
 </body>
