@@ -1,0 +1,387 @@
+<html>
+<head>
+	<title>SVG test 2</title>
+</head>
+<body style="overflow: hidden;background-color:rgb(0,0,0)">
+	<div style="position:absolute;border:1px solid #000000;width:100%;height:100%" id="viewPort">
+		
+
+
+</div>
+
+<script language="JavaScript">
+var SvgScene=function(){
+	var Color=function(r_, g_, b_){
+		var r=r_;
+		var g=g_;
+		var b=b_;
+		return {
+			toString: function(){return "rgb("+r+", "+g+", "+b+")";}
+		};
+	}
+
+	var threeD=(function(){
+		var Point=function(x_, y_, z_){
+			var x=x_;
+			var y=y_;
+			var z=z_;
+			var p={
+				x: function(){return x;},
+				y: function(){return y;},
+				z: function(){return z;},
+				plus: function(p){return Point(p.x()+x, p.y()+y,p.z()+z);},
+				scale: function(r){return Point(r*x,r*y,r*z);},
+				minus: function(p){return Point(x-p.x(), y-p.y(),z-p.z());},
+				dot: function(p){return x*p.x()+y*p.y()+z*p.z();},
+				cross: function(p){return Point(y*p.z()-z*p.y(),z*p.x()-x*p.z(),x*p.y()-y*p.x());},
+				norm: function(){return Math.sqrt(x*x+y*y+z*z);},
+				unit: function(){if(this.norm()==0){return this;}else{return this.scale(1/this.norm());}},
+				project: function(p){
+					var u=this.unit();
+					return u.scale(u.dot(p));
+				},
+				projectOnPlane: function(p,n){
+					var tmp=this.minus(p);
+					return p.plus(tmp.minus(n.project(tmp)));
+				},
+				rotate: function(around, axis, angle){
+					var op=this.minus(around);
+					if(axis==0){
+						var npy=op.y()*Math.cos(angle)-op.z()*Math.sin(angle);
+						var npz=op.z()*Math.cos(angle)+op.y()*Math.sin(angle);
+						return around.plus(Point(op.x(), npy, npz));
+					}
+					if(axis==1){
+						var npz=op.z()*Math.cos(angle)-op.x()*Math.sin(angle);
+						var npx=op.x()*Math.cos(angle)+op.z()*Math.sin(angle);
+						return around.plus(Point(npx, op.y(), npz));
+					}
+					if(axis==2){
+						var npx=op.x()*Math.cos(angle)-op.y()*Math.sin(angle);
+						var npy=op.y()*Math.cos(angle)+op.x()*Math.sin(angle);
+						return around.plus(Point(npx, npy, op.z));
+					}
+				},
+				rotateWithRotation: function(r){
+					return this.rotate(r.around, r.axis, r.angle);
+				},
+				rotateWithOtherRotation: function(r){
+					var op=this.minus(r.around);
+					var opUnchanged=r.direction.project(op);
+					op=op.minus(opUnchanged);
+					if(op.norm()>0){
+						var yAxis=r.direction.cross(op);
+						op=op.scale(Math.cos(r.angle)).plus(yAxis.unit().scale(op.norm()*Math.sin(r.angle)));
+						return r.around.plus(opUnchanged).plus(op);
+					}else{
+						return Point(x, y, z);
+					}
+				},
+				perpendicularTo: function(p){return Math.abs(this.dot(p))<0.0005;},
+				isZero: function(){return x==0&&y==0&&z==0;},
+				sameDirection: function(p){return !this.isZero()&&!p.isZero()&&(this.dot(p)==this.norm()*p.norm());},
+			};
+			return p;
+		};
+		var Line=function(point1, point2){
+			var p1=point1;
+			var baseVector=point2.minus(point1);
+			var intersectWithPlane=function(point, normal){
+				if(baseVector.perpendicularTo(normal)){return null;}
+				var t=-normal.dot(p1.minus(point))/normal.dot(baseVector);
+				return p1.plus(baseVector.scale(t));
+			};
+			var l={
+				p1: function(){return p1;},
+				baseVector: function(){return baseVector;},
+				intersectWithPlane: intersectWithPlane
+			};
+			return l;
+		};
+		var Rotation=function(around, axis, angle){
+			return {
+				around: around,
+				axis: axis,
+				angle: angle
+			};
+		};
+		var OtherRotation=function(around, axisDirection, angle){
+			return {
+				around: around,
+				direction: axisDirection,
+				angle: angle
+			};
+		};
+		var or=Point(0,0,0);
+		var xu=Point(1,0,0);
+		var yu=Point(0,1,0);
+		var zu=Point(0,0,1);
+		return {
+			Point: Point,
+			Line: Line,
+			Rotation: Rotation,
+			OtherRotation: OtherRotation,
+			or: or,
+			xu: xu,
+			yu: yu,
+			zu: zu
+		};
+	})();
+	var Point=threeD.Point;
+	var Line=threeD.Line;
+	var OtherRotation=threeD.OtherRotation;
+	var Rotation=threeD.Rotation;
+	var or=threeD.or;
+	var xu=threeD.xu;
+	var yu=threeD.yu;
+	var zu=threeD.zu;
+
+	var twoD=(function(){
+		var w,h,corners,ltcorners;
+		var d=function(lt1, lt2){return plt(lt1).minus(plt(lt2)).norm();};
+		var p=function(x,y){return Point(x,y,0);};
+		var plt=function(lt){return p(lt.left, lt.top);};
+		var ltp=function(p){return {left:p.x(),top:p.y()};};
+		var intersectLineSegments=function(p1,p2,p3,p4){
+			var a=p2.minus(p1);
+			var b=p4.minus(p3);
+			var c=p3.minus(p1);
+			var d=a.cross(b);
+			var nd=d.norm();
+			if(nd==0){return null;}
+			var i=p1.plus(a.scale(c.cross(b).dot(d)/Math.pow(nd, 2)));
+			return ltp(i);
+		};
+		var distanceToLine=function(p1, direction, p2){
+			var l=p2.minus(p1);
+			return l.norm()*l.unit().dot(direction.unit());
+		};
+		var distanceToEdge=function(lt1, lt2){
+			var direction=plt(lt2).minus(plt(lt1));
+			var d=0;
+			for(var i=0;i<4;i++){
+				var dd=distanceToLine(plt(lt2), direction, corners[i]);
+				if(dd>=d){d=dd;}
+			}
+			return d;
+		};
+		var moveToEdge=function(lt1, lt2, w, h){
+			var d_=d(lt1, lt2);
+			var d1=distanceToEdge(lt1, lt2);
+			return {left:lt1.left+(lt2.left-lt1.left)*(1+d1/d_),top:lt1.top+(lt2.top-lt1.top)*(1+d1/d_)};
+		};
+		var setCorners=function(){
+			corners=[p(0,0), p(0,h), p(w, h), p(w,0)];
+			ltcorners=[{left:0,top:0},{left:0,top:h},{left: w, top:h},{left:w,top:0}];
+		};
+		var makeInfinite=function(lt1, lt2, hlt){
+			var d_=d(lt1, lt2);
+			var nlt1=lt1;
+			var nlt2=lt2;
+			if(d_!=0){
+				if(hlt!=null&&((hlt.left<lt1.left&&lt1.left<lt2.left)||(hlt.left>lt1.left&&lt1.left>lt2.left))){
+					nlt1=hlt;
+				}else{
+					var toEdge=moveToEdge(lt2, lt1, w, h);
+					nlt1=toEdge;
+				}
+				if(hlt!=null&&((hlt.left<lt2.left&&lt2.left<lt1.left)||(hlt.left>lt2.left&&lt2.left>lt1.left))){
+					nlt2=hlt;
+				}else{
+					var toEdge=moveToEdge(lt1, lt2, w, h);
+					nlt2=toEdge;
+				}
+			}
+			return [nlt1, nlt2];
+		};
+		var completeTheSquare=function(lt1, lt2, lt3){
+			var step1=plt(lt1);
+			var step2=plt(lt2);
+			var a=step2.minus(step1);
+			var b=plt(lt3).minus(step1);
+			if(a.cross(b).z>0){
+				var step3=step2.plus(Point(-a.y(), a.x(), 0));
+			}else{
+				var step3=step2.plus(Point(a.y(), -a.x(), 0));
+			}
+			var step4=step3.plus(a.scale(-1));
+			return [ltp(step3),ltp(step4)];
+		};
+		return {
+			setWh: function(w_,h_){w=w_;h=h_;setCorners();},
+			ltcorners: function(){return ltcorners;},
+			makeInfinite: makeInfinite,
+			completeTheSquare: completeTheSquare
+		};
+	})();
+
+	var viewPort=(function(){
+		var w,h,normal;
+		var leftTop=Point(1, 1, -1);
+		var leftAxis=Point(-1,0,0);
+		var topAxis=Point(0,-1,0);
+		var viewPoint=Point(0,0,-3);
+		var setSize=function(){
+			var r=h/w;
+			leftTop=Point(0.5, 0.5*r,-1);
+			topAxis=topAxis.scale(r);
+			normal=leftAxis.cross(topAxis);
+		};
+		var setScale=function(r){
+			leftAxis=leftAxis.scale(r);
+			topAxis=topAxis.scale(r);
+		};
+		var horizonLt=function(line){
+			var direction=line.baseVector();
+			if(direction.perpendicularTo(normal)){return null;}
+			if(direction.dot(normal)<0){direction=direction.scale(-1);}
+			return lt(viewPoint.plus(direction));
+		};
+		var getVisiblePointsOn=function(line){
+			if(line.baseVector().perpendicularTo(normal)){
+				if(line.p1().minus(viewPoint).dot(normal)>0){return [lt(line.p1()), lt(line.p1().plus(line.baseVector()))];}
+				else{return [null, null];}
+			}
+			var p1=line.intersectWithPlane(leftTop, normal);
+			var p2=p1.scale(0.5).plus(line.intersectWithPlane(viewPoint, normal).scale(0.5));
+			return [lt(p1),lt(p2)];
+		};
+		var getVisiblePointsBetween=function(p1, p2){
+			var ltp1=lt(p1);
+			var ltp2=lt(p2);
+			if(ltp1==null&&ltp2==null){return [null, null];}
+			if(ltp1!=null&&ltp2!=null){return [ltp1, ltp2];}
+			var p3=Line(p1,p2).intersectWithPlane(viewPoint, normal);
+			if(ltp1==null){
+				return [lt(p2.plus(p3).scale(0.5)), ltp2];
+			}
+			if(ltp2==null){
+				return [ltp1, lt(p1.plus(p3).scale(0.5))];
+			}
+		};
+		var lt=function(point){
+			var line=Line(viewPoint, point);
+			console.log(normal);
+			if(line.baseVector().perpendicularTo(normal)){return null;}
+			var t=-normal.dot(viewPoint.minus(leftTop))/normal.dot(line.baseVector());
+			if(t<0){return null;}
+			var inPlane=viewPoint.plus(line.baseVector().scale(t));
+			var leftTopToInPlane=inPlane.minus(leftTop);
+			var l=leftAxis.unit().dot(leftTopToInPlane)/leftAxis.norm();
+			var t=topAxis.unit().dot(leftTopToInPlane)/topAxis.norm();
+			return {left: l*w,top: t*h};
+		};
+		var rotateWithOtherRotation=function(r){
+			leftAxis=leftTop.plus(leftAxis);
+			topAxis=leftTop.plus(topAxis);
+			leftTop=leftTop.rotateWithOtherRotation(r);
+			leftAxis=leftAxis.rotateWithOtherRotation(r).minus(leftTop);
+			topAxis=topAxis.rotateWithOtherRotation(r).minus(leftTop);
+			viewPoint=viewPoint.rotateWithOtherRotation(r);
+			normal=leftAxis.cross(topAxis);
+		};
+		var rotX=function(angle){
+			rotateWithOtherRotation(OtherRotation(or, leftAxis, angle));
+		};
+		var rotY=function(angle){
+			rotateWithOtherRotation(OtherRotation(or, topAxis, angle));
+		};
+		var rotZ=function(angle){
+			rotateWithOtherRotation(OtherRotation(or, leftAxis.cross(topAxis), angle));
+		};
+		var scale=function(r){
+			leftTop=leftTop.scale(r);
+			leftAxis=leftAxis.scale(r);
+			topAxis=topAxis.scale(r);
+			viewPoint=viewPoint.scale(r);
+			normal=leftAxis.cross(topAxis);
+		};
+		var toString=function(){
+			var s='<viewport w="'+w+'" h="'+h+'">';
+			s+='<lefttop x="'+leftTop.x()+'" y="'+leftTop.y()+'" z="'+leftTop.z()+'" />';
+			s+='<leftaxis x="'+leftAxis.x()+'" y="'+leftAxis.y()+'" z="'+leftAxis.z()+'" />';
+			s+='<topaxis x="'+topAxis.x()+'" y="'+topAxis.y()+'" z="'+topAxis.z()+'" />';
+			s+='<viewpoint x="'+viewPoint.x()+'" y="'+viewPoint.y()+'" z="'+viewPoint.z()+'" />';
+			s+='</viewport>';
+			return s;
+		};
+		return {
+			lt: lt,
+			setWh: function(w_, h_){w=w_; h=h_; setSize();},
+			leftTop: function(){return leftTop;},
+			leftAxis: function(){return leftAxis;},
+			topAxis: function(){return topAxis},
+			normal: function(){return normal;},
+			viewPoint: function(){return viewPoint;},
+			rotX: rotX,
+			rotY: rotY,
+			rotZ: rotZ,
+			getVisiblePointsBetween: getVisiblePointsBetween,
+			getVisiblePointsOn: getVisiblePointsOn,
+			toString: toString,
+			scale: scale,
+			horizonLt: horizonLt
+		};
+	})();
+	
+	var LineSegmentFactory=(function(){
+		var lineSegments=[];
+		var currentNumber=0;
+		var LineSegment=function(from_, to_){
+			var from, to, thisSvg;
+			var setFromTo=function(from_, to_){
+				from=from_;
+				to=to_;
+			};
+			var draw=function(){
+				var visible=viewPort.getVisiblePointsBetween(from, to);
+				var flt=visible[0];
+				var tlt=visible[1];
+				if(flt==null||tlt==null){
+					thisSvg.none();
+				}else{
+					thisSvg.setFromTo(flt, tlt);
+					thisSvg.draw();
+				}
+			};
+			var setColor=function(color){
+				thisSvg.setColor(color);
+			};
+			var setSvg=function(svg_){
+				thisSvg=svg_;
+			};
+			setFromTo(from_, to_);
+			return {
+				setFromTo: setFromTo,
+				draw: draw,
+				setColor: setColor,
+				setSvg: function(){setSvg(); return this;}
+			};
+		};
+		var makeLineSegment=function(from, to, color){
+			var id="lineSegment"+currentNumber;
+			var index=currentNumber;
+			var ls=LineSegment(from, to).setSvg(svg.addLineSegment(0,0,0,0, id, index, color));
+			lineSegments[currentNumber]=ls;
+			currentNumber++;
+			return ls;
+		};
+		return {
+			makeLineSegment: makeLineSegment,
+			lineSegments: lineSegments
+		};
+	})();
+
+	return {
+		viewPort: viewPort,
+		Point: Point,
+		LineSegmentFactory:LineSegmentFactory,
+		Color: Color
+	};
+};
+
+var scene1=SvgScene();
+
+</script>
+</body>
+</html>
