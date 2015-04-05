@@ -3,8 +3,8 @@
 	<title>SVG test 2</title>
 </head>
 <body style="overflow: hidden;background-color:rgb(0,0,0)">
-	<div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000;border:1pt solid #999999" id="viewPort"></div>
-	<div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000;border:1pt solid #999999" id="viewPort2"></div>
+	<div style="position:relative;border:1px solid #000000;width:100%;height:100%;background-color:#000000;border:1pt solid #999999" id="viewPort"></div>
+	<!-- <div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000;border:1pt solid #999999" id="viewPort2"></div> -->
 
 <script language="JavaScript">
 var SvgScene=function(){
@@ -549,8 +549,9 @@ var SvgScene=function(){
 
 	var SphereFactory=(function(){
 		var spheres=[];
+		var lightSources=[];
 		var currentNumber=0;
-		var Sphere=function(center_, radius_, color_){
+		var Sphere=function(center_, radius_, color_, toBecomeLightSource){
 			var center, radius, color, gridLineSegments, thisSvg;
 			center=center_;
 			radius=radius_;
@@ -615,12 +616,29 @@ var SvgScene=function(){
 				return pointsOnLatitude_;
 			};
 			var setSvg=function(svg_){thisSvg=svg_;};
-			var toString=function(){
+			var toString=(function(){
+				if(!toBecomeLightSource){
+					return function(){
+						var s='<sphere reflection="0" diffusion="0.4" color="'+color.toString2()+'" radius="'+radius+'">'+
+						'<center x="'+center.x()+'" y="'+center.y()+'" z="'+center.z()+'" />'+
+						'</sphere>';
+						return s;
+					};
+				}else{
+					return function(){
+						var s='<lightsource color="'+color.toString2()+'" radius="'+radius+'">'+
+						'<location x="'+center.x()+'" y="'+center.y()+'" z="'+center.z()+'" />'+
+						'</lightsource>';
+						return s;
+					};
+				}
+			})();
+			/*var toString=function(){
 				var s='<sphere reflection="0" diffusion="0.4" color="'+color.toString2()+'" radius="'+radius+'">'+
 				'<center x="'+center.x()+'" y="'+center.y()+'" z="'+center.z()+'" />'+
 				'</sphere>';
 				return s;
-			};
+			};*/
 			var setGrid=function(){
 				var pairwiseGridPoints=getPairwiseGridPoints();
 				for(var i in pairwiseGridPoints){
@@ -645,15 +663,24 @@ var SvgScene=function(){
 		var makeSphere=function(center, radius, color){
 			var id="sphere"+currentNumber;
 			var index=currentNumber;
-			var svgThing=svg.addSphere(id,index, color);
-			var s=Sphere(center, radius, color).setSvg(svgThing);
+			var svgThing=svg.addSphere(color);
+			var s=Sphere(center, radius, color, false).setSvg(svgThing);
+			console.log(s.toString());
 			spheres[currentNumber]=s;
 			currentNumber++;
 			return s;
 		};
+		var makeLightSource=function(center, radius, color){
+			var svgThing=svg.addSphere(color);
+			var s=Sphere(center, radius, color, true).setSvg(svgThing);
+			lightSources.push(s);
+			return s;
+		};
 		return {
 			makeSphere: makeSphere,
-			spheres: function(){return spheres;}
+			makeLightSource: makeLightSource,
+			spheres: function(){return spheres;},
+			lightSources: function(){return lightSources;}
 		};
 	})();
 
@@ -676,62 +703,74 @@ var SvgScene=function(){
 		for(i=0;i<spheres.length;i++){
 			spheres[i].draw();
 		}
+		var lightSources=SphereFactory.lightSources();
+		for(i=0;i<lightSources.length;i++){
+			lightSources[i].draw();
+		}
 	};
 
 	var svg=(function(){
 		var w,h,whereSvg,where,drawAxes;
-		var mouseDown=false;
 		var preventDefault=function(evt){evt.preventDefault();};
-		var mouseLocation=(function(){var oldl=0;var oldt=0;return {setOldLt: function(l, t){oldl=l;oldt=t;},oldl: function(){return oldl;},oldt:function(){return oldt;}};})();
 		var lineSegments=[];
 		var lineLines=[];
 		var planes=[];
 		var spheres=[];
 		var lightSources=[];
-		var onMyMouseMove=function(l, t){
-			if(mouseDown){
-				var dl=l-mouseLocation.oldl();
-				var dt=t-mouseLocation.oldt();
-				viewPort.rotY(dl/1000);
-				viewPort.rotX(-dt/1000);
-				drawThings();
-				mouseLocation.setOldLt(l, t);
-			}
+		var myMouseEvents=(function(){
+			var mouseDown=false;
+			return {
+				onMove: function(dl, dt){
+					if(mouseDown){
+						viewPort.rotY(dl/500);
+						viewPort.rotX(-dt/500);
+						drawThings();
+					}
+				},
+				onDown: function(){mouseDown=true;},
+				onUp: function(){mouseDown=false;}
+			};
+		})();
+
+		var myTouchEvents=(function(){
+			var oldTouchLocation=(function(){
+				
+			})();
+		})();
+
+		var onMyDoubleTouchStart=function(){
+			
 		};
-		var onMyMouseDown=function(l, t){
-			mouseLocation.setOldLt(l, t);mouseDown=true;
-		};
-		var onMyMouseUp=function(){mouseDown=false;};
+
 		var onMouseDown=function(evt){
 			preventDefault(evt);
-			var l=evt.clientX;
-			var t=evt.clientY;
-			onMyMouseDown(l,t);
+			myMouseEvents.onDown();
 		};
-		var onMouseUp=function(){onMyMouseUp();};
+		var onMouseUp=function(){myMouseEvents.onUp();};
 		var onMouseMove=function(evt){
 			preventDefault(evt);
-			var l=evt.clientX;
-			var t=evt.clientY;
-			onMyMouseMove(l,t);
+			var dl=evt.movementX;
+			var dt=evt.movementY;
+			myMouseEvents.onMove(dl, dt);
 		};
-		var onTouchStart=function(evt){
-			preventDefault(evt);
-			var touches=evt.changedTouches;
-			if(touches.length==1){
-				var touch=evt.changedTouches[0];
-				onMyMouseDown(touch.clientX, touch.clientY);
-			}
-		};
-		var onTouchEnd=function(evt){onMyMouseUp();};
-		var onTouchMove=function(evt){
-			preventDefault(evt);
-			var touches=evt.changedTouches;
-			if(touches.length==1){
-				var touch=evt.changedTouches[0];
-				onMyMouseMove(touch.clientX, touch.clientY);
-			}
-		};
+
+		// var onTouchStart=function(evt){
+		// 	preventDefault(evt);
+		// 	var touches=evt.changedTouches;
+		// 	if(touches.length==1){
+		// 		var touch=evt.changedTouches[0];
+		// 		onMyMouseDown(touch.clientX, touch.clientY);
+		// 	}
+		// };
+		// var onTouchEnd=function(evt){onMyMouseUp();};
+		// var onTouchMove=function(evt){
+		// 	preventDefault(evt);
+		// 	var touches=evt.changedTouches;
+		// 	if(touches.length==1){
+		// 		var touch=evt.changedTouches[0];
+		// 		onMyMouseMove(touch.clientX, touch.clientY);
+		// 	}
+		// };
 		var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 			var svgl={};
 			var svgElement=whereSvg.appendChild((function(){
@@ -834,12 +873,12 @@ var SvgScene=function(){
 			planes[index]=s;
 			return s;
 		};
-		var addSphere=function(id, index, color){
+		var addSphere=function(color){
 			var s=SvgSphere(color);
 			spheres.push(s);
 			return s;
 		};
-		var addLightSource=function(id, index, color){
+		var addLightSource=function(color){
 			var s=SvgSphere(color);
 			lightSources.push(s);
 			return s;
@@ -877,9 +916,9 @@ var SvgScene=function(){
 			whereSvg=(function(){
 				var NS="http://www.w3.org/2000/svg";
 				var svgNode=document.createElementNS(NS,"svg");
-				svgNode.ontouchstart=function(event){onTouchStart(event);};
-				svgNode.ontouchmove=function(event){onTouchMove(event);};
-				svgNode.ontouchend=function(event){onTouchEnd(event);};
+				//svgNode.ontouchstart=function(event){onTouchStart(event);};
+				//svgNode.ontouchmove=function(event){onTouchMove(event);};
+				//svgNode.ontouchend=function(event){onTouchEnd(event);};
 				svgNode.onmousedown=function(event){onMouseDown(event);};
 				svgNode.onmouseup=function(event){onMouseUp(event);};
 				svgNode.onmousemove=function(event){onMouseMove(event);};
@@ -934,19 +973,11 @@ var SvgScene=function(){
 					var l=0.25;
 					PlaneFactory.makePlane(Point(0,-1,0),Point(0,1,0),Color(0,255,0));
 
-					LineSegmentFactory.makeLineSegment(Point(l,l,l),Point(-l,l,l),Color(255,0,0));
-					LineSegmentFactory.makeLineSegment(Point(-l,l,l),Point(-l,-l,l),Color(255,0,0));
-					LineSegmentFactory.makeLineSegment(Point(-l,-l,l),Point(l,-l,l),Color(255,0,0));
-					LineSegmentFactory.makeLineSegment(Point(l,-l,l),Point(l,l,l),Color(255,0,0));
-
-					LineSegmentFactory.makeLineSegment(Point(l,l,-l),Point(-l,l,-l),Color(255,0,0));
-					LineSegmentFactory.makeLineSegment(Point(-l,l,-l),Point(-l,-l,-l),Color(255,0,0));
-					LineSegmentFactory.makeLineSegment(Point(-l,-l,-l),Point(l,-l,-l),Color(255,0,0));
-					LineSegmentFactory.makeLineSegment(Point(l,-l,-l),Point(l,l,-l),Color(255,0,0));
+					
 
 					SphereFactory.makeSphere(Point(l,l,l), 0.1,Color(255,255,0));
 
-					LineLineFactory.makeLineLine(Point(l,l,l),Point(-l,-l,-l),Color(255,0,0),2);
+					
 					console.log("finish adding shapes");
 				})();
 				var w_=whereSvg.offsetWidth;
@@ -980,8 +1011,8 @@ var SvgScene=function(){
 var scene1=new SvgScene();
 scene1.init(document.getElementById("viewPort"));
 
-var scene2=new SvgScene();
-scene2.init(document.getElementById("viewPort2"));
+// var scene2=new SvgScene();
+// scene2.init(document.getElementById("viewPort2"));
 
 
 
