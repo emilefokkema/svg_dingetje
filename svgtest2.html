@@ -734,7 +734,23 @@ var SvgScene=function(){
 
 		var myTouchEvents=(function(){
 			var oldTouchLocation=(function(){
-				
+				var oldx=0;
+				var oldy=0;
+				var oneDown=false;
+				var twoDown=false;
+				var changeOneTo=function(x,y){dx=x-oldx;dy=y-oldy;oldx=x;oldy=y;return {x:dx,y:dy};};
+				return {
+					onOneStart: function(x,y){changeOneTo(x,y);oneDown=true;},
+					onOneMove: function(x,y){
+						if(oneDown){
+							var d=changeOneTo(x,y);
+							viewPort.rotY(d.x/500);
+							viewPort.rotX(-d.y/500);
+							drawThings();
+						}
+					},
+					onOneEnd: function(){oneDown=false;}
+				};
 			})();
 		})();
 
