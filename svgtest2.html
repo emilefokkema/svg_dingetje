@@ -3,7 +3,7 @@
 	<title>SVG test 2</title>
 </head>
 <body style="overflow: hidden;background-color:rgb(0,0,0)">
-	<div style="position:relative;border:1px solid #000000;width:100%;height:100%;background-color:#000000;border:1pt solid #999999" id="viewPort"></div>
+	<div style="position:relative;border:1px solid #000000;width:100%;height:100%;background-color:#000000" id="viewPort"></div>
 	<!-- <div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000;border:1pt solid #999999" id="viewPort2"></div> -->
 
 <script language="JavaScript">
@@ -529,7 +529,10 @@ var SvgScene=function(){
 				draw: draw,
 				setColor: setColor,
 				setSvg: function(svg_){setSvg(svg_);return this;},
-				toString: toString
+				toString: toString,
+				point: function(){return point;},
+				normal: function(){return normal;},
+				color: function(){return color;}
 			};
 		};
 		var makePlane=function(point, normal, color){
@@ -657,7 +660,10 @@ var SvgScene=function(){
 				draw: draw,
 				setColor: setColor,
 				setSvg: function(svg_){setSvg(svg_);return this;},
-				toString: toString
+				toString: toString,
+				center: function(){return center;},
+				radius: function(){return radius;},
+				color: function(){return color;}
 			};
 		};
 		var makeSphere=function(center, radius, color){
@@ -680,7 +686,7 @@ var SvgScene=function(){
 			makeSphere: makeSphere,
 			makeLightSource: makeLightSource,
 			spheres: function(){return spheres;},
-			lightSources: function(){return lightSources;}
+			lightSources: function(){return lightSources;},
 		};
 	})();
 
@@ -1066,7 +1072,7 @@ var SvgScene=function(){
 
 			var makeTable=function(nodesInCells, rowHeights){
 				var table=document.createElement('table');
-				table.setAttribute('style', 'width:100%;height:100%;margin:0px;padding:0px;border-spacing:0px');
+				table.setAttribute('style', 'width:100%;height:100%;margin:0px;padding:0px;border-spacing:0px;color:inherit');
 				for(var i=0;i<nodesInCells.length;i++){
 					var row=document.createElement('tr');
 					row.setAttribute('style','margin:0px;padding:0px');
@@ -1082,7 +1088,7 @@ var SvgScene=function(){
 				return table;
 			};
 
-			where.appendChild(makeButton({left:0,bottom:0},'XML',function(){showXml(sceneXml());}, function(){},0.5,{width:'15%'}));
+			where.appendChild(makeButton({left:0,bottom:0},'XML',function(){showXml(sceneXml());}, function(){},0.5,{width:'15%',height:'10%'}));
 			var xmlDialog=(function(){
 				var xmlDialog=document.createElement('div');
 				xmlDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:100%;display:none;opacity:0.75');
@@ -1125,6 +1131,109 @@ var SvgScene=function(){
 					s+=spheres[i].toString();
 				}
 				return s+'</group>'+viewPort.toString()+'</scene>';
+			};
+
+			where.appendChild(makeButton({left:'15%',bottom:0},'hoi2', function(){showShapeList(sceneShapeList());}, function(){},0.5,{width:'15%',height:'10%'}));
+			var shapeListDialog=(function(){
+				var shapeListDialog=document.createElement('div');
+				shapeListDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color: rgb(50,50,50);padding:0px;width:40%;height:100%;display:none;font-family:Arial;opacity:0.75');
+				var button=makeButton({},'DONE',function(){shapeListDialog.style.display='none';}, function(){}, 1, {width:100});
+				var text=document.createElement('div');
+				text.setAttribute('style','width:100%;height:100%;overflow:scroll;padding:0px;margin:0px');
+				var table=makeTable([[text],[button]],['90%','10%']);
+				shapeListDialog.appendChild(table);
+				where.appendChild(shapeListDialog);
+				return {dialog: shapeListDialog,text:text};
+			})();
+
+			var showShapeList=function(table){
+				shapeListDialog.dialog.style.display="initial";
+				shapeListDialog.text.innerHTML="";
+				shapeListDialog.text.appendChild(table);
+			};
+			var sceneShapeList=function(){
+				var makeRow={
+					"valueBox": function(name, value){
+						var box=document.createElement('div');
+						box.appendChild(document.createTextNode(name+value));
+						return box;
+					},
+					"colorBox": function(color){
+						var box=document.createElement('div');
+						box.setAttribute('style','border: 1pt solid #000000;width:40px;height:40px;background-color: '+color.toString());
+						return box;
+					},
+					"pointBox": function(x,y,z){
+						var box=document.createElement('div');
+						box.setAttribute('style','border: 1pt solid rgb(150,150,150)');
+						var table=makeTable([[this["valueBox"]('x: ', x),this["valueBox"]('y: ',y),this["valueBox"]('z: ',z)]]);
+						box.appendChild(table);
+						return box;
+					},
+					"propertyRow": function(name, node){
+						var row=document.createElement('div');
+						row.setAttribute('style','height:50px;color:inherit');
+						var table=makeTable([[document.createTextNode(name),node]]);
+						row.appendChild(table);
+						return row;
+					},
+					"rowContainer": function(title, content){
+						var row=document.createElement('div');
+						row.setAttribute('style','background-color:rgb(50,50,50);margin:5px;padding:2px;color:#FFFFFF');
+						var titleDiv=document.createElement('div');
+						titleDiv.setAttribute('style','font-weight:bold');
+						titleDiv.appendChild(document.createTextNode(title));
+						row.appendChild(titleDiv);
+						var contentDiv=document.createElement('div');
+						contentDiv.appendChild(content);
+						row.appendChild(contentDiv);
+						return row;
+					},
+					"plane": function(plane){
+						var content=document.createElement("div");
+						var point=plane.point();
+						content.appendChild(this["propertyRow"]('point: ', this["pointBox"](point.x(), point.y(), point.z())));
+						var normal=plane.normal();
+						content.appendChild(this["propertyRow"]('normal:', this["pointBox"](normal.x(), normal.y(), normal.z())));
+						content.appendChild(this["propertyRow"]('color:', this["colorBox"](plane.color())));
+						return this["rowContainer"]("plane",content);
+					},
+					"sphere": function(sphere){
+						var content=document.createElement("div");
+						var center=sphere.center();
+						content.appendChild(this["propertyRow"]('center: ', this["pointBox"](center.x(), center.y(), center.z())));
+						content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', sphere.radius())));
+						content.appendChild(this["propertyRow"]('color:', this["colorBox"](sphere.color())));
+						return this["rowContainer"]("sphere",content);
+					},
+					"lightsource": function(lightSource){
+						var content=document.createElement("div");
+						var center=lightSource.center();
+						content.appendChild(this["propertyRow"]('location: ', this["pointBox"](center.x(), center.y(), center.z())));
+						content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', lightSource.radius())));
+						content.appendChild(this["propertyRow"]('color:', this["colorBox"](lightSource.color())));
+						return this["rowContainer"]("light source",content);
+					}
+				};
+				var rows=[];
+				var lightSources=SphereFactory.lightSources();
+				for(var i=0;i<lightSources.length;i++){
+					rows.push(makeRow["lightsource"](lightSources[i]));
+				}
+				var planes=PlaneFactory.planes();
+				for(var i=0;i<planes.length;i++){
+					rows.push(makeRow["plane"](planes[i]));
+				}
+				var spheres=SphereFactory.spheres();
+				for(var i=0;i<spheres.length;i++){
+					rows.push(makeRow["sphere"](spheres[i]));
+				}
+				var table=document.createElement('div');
+				table.setAttribute('style','width:100%;height:100%');
+				for(var i=0;i<rows.length;i++){
+					table.appendChild(rows[i]);
+				}
+				return table;
 			};
 			
 
