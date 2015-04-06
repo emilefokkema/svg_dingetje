@@ -733,30 +733,66 @@ var SvgScene=function(){
 		})();
 
 		var myTouchEvents=(function(){
-			var oldTouchLocation=(function(){
-				var oldx=0;
-				var oldy=0;
-				var oneDown=false;
-				var twoDown=false;
-				var changeOneTo=function(x,y){dx=x-oldx;dy=y-oldy;oldx=x;oldy=y;return {x:dx,y:dy};};
+			var oneTouch=(function(){
+				var oldx,oldy,dx,dy;
+				var down=false;
+				var changeTo=function(x,y){dx=x-oldx;dy=y-oldy;oldx=x;oldy=y;return {x:dx,y:dy};};
 				return {
-					onOneStart: function(x,y){changeOneTo(x,y);oneDown=true;},
-					onOneMove: function(x,y){
-						if(oneDown){
-							var d=changeOneTo(x,y);
+					onDown: function(x,y){changeTo(x,y);down=true;},
+					onMove: function(x,y){
+						if(down){
+							var d=changeTo(x,y);
 							viewPort.rotY(d.x/500);
 							viewPort.rotX(-d.y/500);
 							drawThings();
 						}
+
 					},
-					onOneEnd: function(){oneDown=false;}
+					onUp: function(){down=false;},
+					isDown: function(){return down;}
 				};
 			})();
-		})();
+			var twoTouches=(function(){
+				var oldx1,oldy1,oldx2,oldy2,oldd;
+				var down=false;
+				var changeTo=function(x1,y1,x2,y2){
+					var dd;
+					oldx1=x1;
+					oldy1=y1;
+					oldx2=x2;
+					oldy2=y2;
+					if(oldd){
+						dd=Math.sqrt(Math.pow(x1-x2,2)+Math.pow(y1-y2,2))-oldd;
+						oldd=oldd+dd;
+					}
+					else{
+						oldd=Math.sqrt(Math.pow(x1-x2,2)+Math.pow(y1-y2,2));
+						dd=0;
+					}
 
-		var onMyDoubleTouchStart=function(){
-			
-		};
+					return {d:dd/oldd};
+				};
+				return {
+					onDown: function(x1,y1,x2,y2){
+						changeTo(x1,y1,x2,y2);
+						down=true;
+					},
+					onMove: function(x1,y1,x2,y2){
+						if(down){
+							var d=changeTo(x1,y1,x2,y2);
+							viewPort.scale(Math.pow(2,-d.d));
+							drawThings();
+						}
+					},
+					onUp: function(){down=false;},
+					isDown: function(){return down;}
+				};
+			})();
+			return {
+				oneTouch: oneTouch,
+				twoTouches: twoTouches
+			};
+		})();
 
 		var onMouseDown=function(evt){
 			preventDefault(evt);
@@ -770,23 +806,38 @@ var SvgScene=function(){
 			myMouseEvents.onMove(dl, dt);
 		};
 
-		// var onTouchStart=function(evt){
-		// 	preventDefault(evt);
-		// 	var touches=evt.changedTouches;
-		// 	if(touches.length==1){
-		// 		var touch=evt.changedTouches[0];
-		// 		onMyMouseDown(touch.clientX, touch.clientY);
-		// 	}
-		// };
-		// var onTouchEnd=function(evt){onMyMouseUp();};
-		// var onTouchMove=function(evt){
-		// 	preventDefault(evt);
-		// 	var touches=evt.changedTouches;
-		// 	if(touches.length==1){
-		// 		var touch=evt.changedTouches[0];
-		// 		onMyMouseMove(touch.clientX, touch.clientY);
-		// 	}
-		// };
+		var onTouchStart=function(evt){
+			preventDefault(evt);
+			var touches=evt.changedTouches;
+			if(touches.length==1){
+				var touch=evt.changedTouches[0];
+				if(!myTouchEvents.oneTouch.isDown()){myTouchEvents.oneTouch.onDown(touch.clientX, touch.clientY);}
+			}
+			
+		};
+		var onTouchEnd=function(evt){
+			myTouchEvents.oneTouch.onUp();
+			myTouchEvents.twoTouches.onUp();
+		};
+		var onTouchMove=function(evt){
+			preventDefault(evt);
+			var touches=evt.changedTouches;
+			if(touches.length==1){
+				var touch=evt.changedTouches[0];
+				myTouchEvents.oneTouch.onMove(touch.clientX, touch.clientY);
+			}
+			else{
+				var one=evt.changedTouches[0];
+				var two=evt.changedTouches[1];
+				var x1=one.clientX;
+				var y1=one.clientY;
+				var x2=two.clientX;
+				var y2=two.clientY;
+				if(!myTouchEvents.twoTouches.isDown()){myTouchEvents.twoTouches.onDown(x1,y1,x2,y2);}
+				else{myTouchEvents.twoTouches.onMove(x1,y1,x2,y2);}
+
+			}
+		};
 		var SvgLine=function(l1,t1,l2,t2,id, color, thickness){
 			var svgl={};
 			var svgElement=whereSvg.appendChild((function(){
@@ -932,9 +983,9 @@ var SvgScene=function(){
 			whereSvg=(function(){
 				var NS="http://www.w3.org/2000/svg";
 				var svgNode=document.createElementNS(NS,"svg");
-				//svgNode.ontouchstart=function(event){onTouchStart(event);};
-				//svgNode.ontouchmove=function(event){onTouchMove(event);};
-				//svgNode.ontouchend=function(event){onTouchEnd(event);};
+				svgNode.ontouchstart=function(event){onTouchStart(event);};
+				svgNode.ontouchmove=function(event){onTouchMove(event);};
+				svgNode.ontouchend=function(event){onTouchEnd(event);};
 				svgNode.onmousedown=function(event){onMouseDown(event);};
 				svgNode.onmouseup=function(event){onMouseUp(event);};
 				svgNode.onmousemove=function(event){onMouseMove(event);};
@@ -981,6 +1032,104 @@ var SvgScene=function(){
 				};
 			};
 			svgObject.drawAxes=drawAxes;
+
+			//BEGIN buttons and such
+
+			var positionString=function(offset){
+				return offset?('position:absolute; '+((offset.left)?'left: '+offset.left+'; ':'right: '+offset.right+'; ')+(offset.top?'top: '+offset.top+'; ':'bottom: '+offset.bottom+'; ')):'';
+			};
+			var sizeString=function(size){
+				return size?((size.width?'width: '+size.width+'; ':'')+(size.height?'height: '+size.height+'; ':'')):'';
+			};
+
+			var makeButton=function(offset, text, onmousedown, onmouseup, opacity, size){
+				var opacityString=opacity?'opacity: '+opacity+'; ':'';
+				var button=document.createElement('div');
+				button.setAttribute('style', positionString(offset)+'background-color:rgb(50,50,50);color: #FFFFFF;cursor: hand;padding:5px;font-family:Arial; '+opacityString+sizeString(size));
+				button.onmousedown=function(event){
+					preventDefault(event);
+					if(event.which!=1){return;}
+					
+					onmousedown.call(null);
+				};
+				var stopFunction=function(){
+					if(onmouseup){
+						onmouseup.call(null);
+					}
+				};
+				button.onmouseup=stopFunction;
+				button.onmouseleave=stopFunction;
+				//button.onmouseup=onmouseup||function(){};
+				button.appendChild(document.createTextNode(text));
+				return button;
+			};
+
+			var makeTable=function(nodesInCells, rowHeights){
+				var table=document.createElement('table');
+				table.setAttribute('style', 'width:100%;height:100%;margin:0px;padding:0px;border-spacing:0px');
+				for(var i=0;i<nodesInCells.length;i++){
+					var row=document.createElement('tr');
+					row.setAttribute('style','margin:0px;padding:0px');
+					if(rowHeights){row.setAttribute('height', rowHeights[i]);}
+					for(var j=0;j<nodesInCells[i].length;j++){
+						var td=document.createElement('td');
+						td.setAttribute('style','margin:0px;padding:0px');
+						td.appendChild(nodesInCells[i][j]);
+						row.appendChild(td);
+					}
+					table.appendChild(row);
+				}
+				return table;
+			};
+
+			where.appendChild(makeButton({left:0,bottom:0},'XML',function(){showXml(sceneXml());}, function(){},0.5,{width:'15%'}));
+			var xmlDialog=(function(){
+				var xmlDialog=document.createElement('div');
+				xmlDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:100%;display:none;opacity:0.75');
+				var button=makeButton(null,'OK',function(){xmlDialog.style.display='none';}, function(){}, 1, {width:100});
+				var text=document.createElement('textarea');
+				text.setAttribute('style', 'background-color:rgb(50,50,50);color: #FFFFFF;border: none;resize:none;width:100%;height:100%');
+				var table=makeTable([[text],[button]],['90%','10%']);
+				xmlDialog.appendChild(table);
+				where.appendChild(xmlDialog);
+				return {dialog: xmlDialog,text: text};
+			})();
+
+			var showXml=function(string){
+				var s=string;
+				var lines=s.split('<');
+				var indent='';
+				var minus, equal, line;
+				for(var i=1;i<lines.length;i++){
+					line=lines[i];
+					if(line[0]=='/'){indent=indent.substring(2);}
+					lines[i]=indent+'<'+line;
+					if(line[0]!='/'&&line.slice(-2)!='/>'){indent=indent+'  ';}
+				}
+				var s1=lines.join('\n').replace(/^\n/g, '');
+				xmlDialog.dialog.style.display="initial";
+				xmlDialog.text.value=s1;
+			};
+			var sceneXml=function(){
+				var s='<?xml version="1.0" encoding="UTF-8"?><scene xmlns="http://www.sogyo.nl/efokkema_raytrace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ><group>';
+				var planes=PlaneFactory.planes();
+				for(var i=0;i<planes.length;i++){
+					s+=planes[i].toString();
+				}
+				var lightSources=SphereFactory.lightSources();
+				for(var i=0;i<lightSources.length;i++){
+					s+=lightSources[i].toString();
+				}
+				var spheres=SphereFactory.spheres();
+				for(var i=0;i<spheres.length;i++){
+					s+=spheres[i].toString();
+				}
+				return s+'</group>'+viewPort.toString()+'</scene>';
+			};
+			
+
+			//END buttons and such
+
 			var currentOnLoad=whereSvg.onload;
 			whereSvg.onload=function(){
 				if(currentOnLoad){currentOnLoad();}
