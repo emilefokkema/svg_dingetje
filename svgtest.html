@@ -3,45 +3,13 @@
 	<title>SVG test</title>
 </head>
 <body style="overflow: hidden;background-color:rgb(0,0,0)">
-	<div style="border:1px solid #000000;width:100%;height:100%" id="viewPort">
+	<div style="position:relative;border:1px solid #000000;width:100%;height:100%" id="viewPort">
 		
 
 
 </div>
 
 <script language="JavaScript">
-var SvgScene=(function(){
-	var Color=function(r_, g_, b_){
-		var r=r_;
-		var g=g_;
-		var b=b_;
-		return {
-			toString: function(){return "rgb("+r+", "+g+", "+b+")";}
-		};
-	}
-	var threeD=(function(){
-		var Point=function(x_, y_, z_){
-			var x=x_;
-			var y=y_;
-			var z=z_;
-			return {
-				x: function(){return x;},
-				y: function(){return y;},
-				z: function(){return z;},
-				plus: function(p){return Point(p.x()+x, p.y()+y,p.z()+z);}
-			};
-		};
-		return {
-			Point: Point
-		};
-	})();
-	var Point=threeD.Point;
-	return {
-		Color: Color,
-		Point: Point
-	};
-})();
-//TODO: the thing above will become the global object.
 
 var Color=function(r,g,b){
 	this.r=r;
@@ -1293,11 +1261,8 @@ var svg={
 			(function(){
 				console.log("begin adding shapes...");
 				PlaneFactory.makePlane(new threeD.Point(0,-1,0), new threeD.Point(0,1,0), new Color(80,20,20)).setColor(new Color(80,80,20));
-				LightSourceFactory.makeLightSource(new threeD.Point(0,15,0), 3,new Color(255,255,255)).setColor(new Color(100,100,255));
+				LightSourceFactory.makeLightSource(new threeD.Point(0,15,0), 3,new Color(255,255,255));//.setColor(new Color(100,100,255));
 				SphereFactory.makeSphere(new threeD.Point(-2,2,0),1,new Color(20,80,20));
-				//SphereFactory.makeLineSegmentTest();
-				//LineSegmentFactory.makeLineSegment(threeD.or, new threeD.Point(1,1,1),new Color(255,0,0));
-				//LineSegmentFactory.makeLineSegment(threeD.or, new threeD.Point(1,1,1),new Color(255,0,0));
 				SphereFactory.makeSphere(new threeD.Point(2,2,0),1,new Color(20,80,20)).setColor(new Color(20,20,80));
 				console.log("finish adding shapes");
 			})();
