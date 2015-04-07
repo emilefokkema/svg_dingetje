@@ -3,8 +3,8 @@
 	<title>SVG test 2</title>
 </head>
 <body style="overflow: hidden;background-color:rgb(0,0,0)">
-	<div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000" id="viewPort"></div>
-	<div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000" id="viewPort2"></div>
+	<div style="position:relative;border:1px solid #000000;width:100%;height:100%;background-color:#000000" id="viewPort"></div>
+	<!-- <div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000" id="viewPort2"></div> -->
 
 <script language="JavaScript">
 var SvgScene=function(){
@@ -1171,22 +1171,43 @@ var SvgScene=function(){
 			};
 			var sceneShapeList=function(){
 				var makeRow={
-					"valueBox": function(name, value){
+					"valueBox": function(name, value, edit){
 						var box=document.createElement('div');
+						box.setAttribute('style','width:50px;border:1pt solid #FF0000');
 						box.appendChild(document.createTextNode(name+value));
-						return box;
+						var isEditable=false;
+						var onEdit;
+						var editable=makeTable([[document.createTextNode(name),(function(){
+							var textbox=document.createElement('input');
+							textbox.setAttribute('type','text');
+							textbox.setAttribute('style','width:40px');
+							textbox.setAttribute('value',value);
+							onEdit=function(){edit(parseFloat(textbox.value));};
+							return textbox;
+						})()]]);
+						box.onclick=function(){
+							if(!isEditable){
+								box.innerHTML='';box.appendChild(editable);isEditable=true;
+							}
+						};
+						return {box:box,onEdit:onEdit};
 					},
 					"colorBox": function(color){
 						var box=document.createElement('div');
 						box.setAttribute('style','border: 1pt solid #000000;width:40px;height:40px;background-color: '+color.toString());
 						return box;
 					},
-					"pointBox": function(x,y,z){
+					"pointBox": function(x,y,z,edit){
+						var nx=x,ny=y,nz=z;
 						var box=document.createElement('div');
 						box.setAttribute('style','border: 1pt solid rgb(150,150,150)');
-						var table=makeTable([[this["valueBox"]('x: ', x),this["valueBox"]('y: ',y),this["valueBox"]('z: ',z)]]);
+						var valueBox1=this["valueBox"]('x: ', x, function(v){nx=v;});
+						var valueBox2=this["valueBox"]('y: ', y, function(v){ny=v;});
+						var valueBox3=this["valueBox"]('z: ', z, function(v){nz=v;});
+						var table=makeTable([[valueBox1.box,valueBox2.box,valueBox3.box]]);
 						box.appendChild(table);
-						return box;
+						var onEdit=function(){valueBox1.onEdit();valueBox2.onEdit();valueBox3.onEdit();if(edit){edit(nx, ny, nz);}};
+						return {box:box,onEdit:onEdit};
 					},
 					"propertyRow": function(name, node){
 						var row=document.createElement('div');
@@ -1210,25 +1231,25 @@ var SvgScene=function(){
 					"plane": function(plane){
 						var content=document.createElement("div");
 						var point=plane.point();
-						content.appendChild(this["propertyRow"]('point: ', this["pointBox"](point.x(), point.y(), point.z())));
+						content.appendChild(this["propertyRow"]('point: ', this["pointBox"](point.x(), point.y(), point.z()).box));
 						var normal=plane.normal();
-						content.appendChild(this["propertyRow"]('normal:', this["pointBox"](normal.x(), normal.y(), normal.z())));
+						content.appendChild(this["propertyRow"]('normal:', this["pointBox"](normal.x(), normal.y(), normal.z()).box));
 						content.appendChild(this["propertyRow"]('color:', this["colorBox"](plane.color())));
 						return this["rowContainer"]("plane",content);
 					},
 					"sphere": function(sphere){
 						var content=document.createElement("div");
 						var center=sphere.center();
-						content.appendChild(this["propertyRow"]('center: ', this["pointBox"](center.x(), center.y(), center.z())));
-						content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', sphere.radius())));
+						content.appendChild(this["propertyRow"]('center: ', this["pointBox"](center.x(), center.y(), center.z()).box));
+						content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', sphere.radius()).box));
 						content.appendChild(this["propertyRow"]('color:', this["colorBox"](sphere.color())));
 						return this["rowContainer"]("sphere",content);
 					},
 					"lightsource": function(lightSource){
 						var content=document.createElement("div");
 						var center=lightSource.center();
-						content.appendChild(this["propertyRow"]('location: ', this["pointBox"](center.x(), center.y(), center.z())));
-						content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', lightSource.radius())));
+						content.appendChild(this["propertyRow"]('location: ', this["pointBox"](center.x(), center.y(), center.z()).box));
+						content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', lightSource.radius()).box));
 						content.appendChild(this["propertyRow"]('color:', this["colorBox"](lightSource.color())));
 						return this["rowContainer"]("light source",content);
 					}
@@ -1473,14 +1494,15 @@ var SvgScene=function(){
 var scene1=new SvgScene();
 scene1.init(document.getElementById("viewPort"), [
 	{type: "plane", point: [0,-1,0], normal: [0,1,0], color:[0,255,0]},
-	{type: "sphere",center: [0.25,0.25,0.25],radius:0.1,color:[255,255,0]}
+	{type: "sphere",center: [0.25,0.25,0.25],radius:0.1,color:[255,255,0]},
+	{type: "sphere",center: [0.5,0.75,0.25],radius:0.1,color:[255,0,255]}
 ]);
 
-var scene2=new SvgScene();
-scene2.init(document.getElementById("viewPort2"),[
-	{type: "plane", point: [-2,0,0], normal: [1,0,0], color:[255,0,0]},
-	{type: "sphere",center: [0,0,0],radius:0.3,color:[0,255,255]}
-]);
+// var scene2=new SvgScene();
+// scene2.init(document.getElementById("viewPort2"),[
+// 	{type: "plane", point: [-2,0,0], normal: [1,0,0], color:[255,0,0]},
+// 	{type: "sphere",center: [0,0,0],radius:0.3,color:[0,255,255]}
+// ]);
 
 
 
