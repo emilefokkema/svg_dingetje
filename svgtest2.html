@@ -3,8 +3,8 @@
 	<title>SVG test 2</title>
 </head>
 <body style="overflow: hidden;background-color:rgb(0,0,0)">
-	<div style="position:relative;border:1px solid #000000;width:100%;height:100%;background-color:#000000" id="viewPort"></div>
-	<!-- <div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000;border:1pt solid #999999" id="viewPort2"></div> -->
+	<div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000" id="viewPort"></div>
+	<div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000" id="viewPort2"></div>
 
 <script language="JavaScript">
 var SvgScene=function(){
@@ -177,17 +177,34 @@ var SvgScene=function(){
 			var nlt1=lt1;
 			var nlt2=lt2;
 			if(d_!=0){
-				if(hlt!=null&&((hlt.left<lt1.left&&lt1.left<lt2.left)||(hlt.left>lt1.left&&lt1.left>lt2.left))){
-					nlt1=hlt;
+				if(lt1.left!=lt2.left){
+					if(hlt!=null&&((hlt.left<lt1.left&&lt1.left<lt2.left)||(hlt.left>lt1.left&&lt1.left>lt2.left))){
+						nlt1=hlt;
+					}else{
+						var toEdge=moveToEdge(lt2, lt1, w, h);
+						nlt1=toEdge;
+					}
+					if(hlt!=null&&((hlt.left<lt2.left&&lt2.left<lt1.left)||(hlt.left>lt2.left&&lt2.left>lt1.left))){
+						nlt2=hlt;
+					}else{
+						var toEdge=moveToEdge(lt1, lt2, w, h);
+						nlt2=toEdge;
+					}
+
 				}else{
-					var toEdge=moveToEdge(lt2, lt1, w, h);
-					nlt1=toEdge;
-				}
-				if(hlt!=null&&((hlt.left<lt2.left&&lt2.left<lt1.left)||(hlt.left>lt2.left&&lt2.left>lt1.left))){
-					nlt2=hlt;
-				}else{
-					var toEdge=moveToEdge(lt1, lt2, w, h);
-					nlt2=toEdge;
+					if(hlt!=null&&((hlt.top<lt1.top&&lt1.top<lt2.top)||(hlt.top>lt1.top&&lt1.top>lt2.top))){
+						nlt1=hlt;
+					}else{
+						var toEdge=moveToEdge(lt2, lt1, w, h);
+						nlt1=toEdge;
+					}
+					if(hlt!=null&&((hlt.top<lt2.top&&lt2.top<lt1.top)||(hlt.top>lt2.top&&lt2.top>lt1.top))){
+						nlt2=hlt;
+					}else{
+						var toEdge=moveToEdge(lt1, lt2, w, h);
+						nlt2=toEdge;
+					}
+
 				}
 			}
 			return [nlt1, nlt2];
@@ -355,10 +372,10 @@ var SvgScene=function(){
 				setSvg: function(svg_){setSvg(svg_); return this;}
 			};
 		};
-		var makeLineSegment=function(from, to, color){
+		var makeLineSegment=function(from, to, color, thickness){
 			var id="lineSegment"+currentNumber;
 			var index=currentNumber;
-			var svgThing=svg.addLineSegment(0,0,0,0, id, index, color);
+			var svgThing=svg.addLineSegment(0,0,0,0, id, index, color, thickness);
 			var ls=LineSegment(from, to).setSvg(svgThing);
 			lineSegments[currentNumber]=ls;
 			currentNumber++;
@@ -480,9 +497,10 @@ var SvgScene=function(){
 			var getPairwiseGridPoints=function(){
 				var gp=[];
 				var n=20;
+				var f=function(i){return i+Math.pow(i, 3)/5;}
 				for(var i=-n;i<=n;i++){
-					gp.push([pointWithCoords(i,n), pointWithCoords(i,-n)]);
-					gp.push([pointWithCoords(-n,i), pointWithCoords(n,i)]);
+					gp.push([pointWithCoords(f(i),n), pointWithCoords(f(i),-n)]);
+					gp.push([pointWithCoords(-n,f(i)), pointWithCoords(n,f(i))]);
 				}
 				return gp;
 			};
@@ -520,7 +538,7 @@ var SvgScene=function(){
 				gridLines=[];
 				var pairwiseGridPoints=getPairwiseGridPoints();
 				for(var i in pairwiseGridPoints){
-					gridLines.push(LineLineFactory.makeLineLine(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1], color, 1));
+					gridLines.push(LineLineFactory.makeLineLine(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1], color, 0.5));
 				}
 			};
 			setAxes();
@@ -636,12 +654,6 @@ var SvgScene=function(){
 					};
 				}
 			})();
-			/*var toString=function(){
-				var s='<sphere reflection="0" diffusion="0.4" color="'+color.toString2()+'" radius="'+radius+'">'+
-				'<center x="'+center.x()+'" y="'+center.y()+'" z="'+center.z()+'" />'+
-				'</sphere>';
-				return s;
-			};*/
 			var setGrid=function(){
 				var pairwiseGridPoints=getPairwiseGridPoints();
 				for(var i in pairwiseGridPoints){
@@ -652,7 +664,7 @@ var SvgScene=function(){
 				gridLineSegments=[];
 				var pairwiseGridPoints=getPairwiseGridPoints();
 				for(var i in pairwiseGridPoints){
-					gridLineSegments.push(LineSegmentFactory.makeLineSegment(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1], color));
+					gridLineSegments.push(LineSegmentFactory.makeLineSegment(pairwiseGridPoints[i][0],pairwiseGridPoints[i][1], color, 0.5));
 				}
 			};
 			makeGrid();
@@ -956,8 +968,8 @@ var SvgScene=function(){
 			lightSources.push(s);
 			return s;
 		};
-		var addLineSegment=function(l1,t1,l2,t2, id, index, color){
-			var s=SvgLine(l1,t1,l2,t2,id,color, 1);
+		var addLineSegment=function(l1,t1,l2,t2, id, index, color, thickness){
+			var s=SvgLine(l1,t1,l2,t2,id,color, thickness);
 			lineSegments[index]=s;
 			return s;
 		};
@@ -967,7 +979,7 @@ var SvgScene=function(){
 			return s;
 		};
 		var svgObject={};
-		var init=function(where_){
+		var init=function(where_, shapes_){
 			where=where_;
 			var makeAxisAndLabel=function(axisName){
 				var NS="http://www.w3.org/2000/svg";
@@ -997,7 +1009,7 @@ var SvgScene=function(){
 				svgNode.onmousemove=function(event){onMouseMove(event);};
 				svgNode.setAttribute('width','100%');
 				svgNode.setAttribute('height','100%');
-				svgNode.setAttribute('style', 'border: 1px solid #000000');
+				//svgNode.setAttribute('style', 'border: 1px solid #000000');
 				return where.appendChild(svgNode);
 			})();
 
@@ -1042,7 +1054,7 @@ var SvgScene=function(){
 			//BEGIN buttons and such
 
 			var positionString=function(offset){
-				return offset?('position:absolute; '+((offset.left)?'left: '+offset.left+'; ':'right: '+offset.right+'; ')+(offset.top?'top: '+offset.top+'; ':'bottom: '+offset.bottom+'; ')):'';
+				return offset?('position:absolute; '+((offset.left||offset.left==0)?'left: '+offset.left+'; ':'right: '+offset.right+'; ')+((offset.top||offset.top==0)?'top: '+offset.top+'; ':'bottom: '+offset.bottom+'; ')):'';
 			};
 			var sizeString=function(size){
 				return size?((size.width?'width: '+size.width+'; ':'')+(size.height?'height: '+size.height+'; ':'')):'';
@@ -1051,7 +1063,8 @@ var SvgScene=function(){
 			var makeButton=function(offset, text, onmousedown, onmouseup, opacity, size){
 				var opacityString=opacity?'opacity: '+opacity+'; ':'';
 				var button=document.createElement('div');
-				button.setAttribute('style', positionString(offset)+'background-color:rgb(50,50,50);color: #FFFFFF;cursor: hand;padding:5px;font-family:Arial; '+opacityString+sizeString(size));
+				button.setAttribute('style', positionString(offset)+'background-color:rgb(50,50,50);color: #FFFFFF;cursor: hand;padding:0px;font-family:Arial; '+opacityString+sizeString(size));
+				button.setAttribute('align','center');
 				button.onmousedown=function(event){
 					preventDefault(event);
 					if(event.which!=1){return;}
@@ -1066,7 +1079,12 @@ var SvgScene=function(){
 				button.onmouseup=stopFunction;
 				button.onmouseleave=stopFunction;
 				//button.onmouseup=onmouseup||function(){};
-				button.appendChild(document.createTextNode(text));
+				button.appendChild((function(){
+					var a=document.createElement('a');
+					a.setAttribute('style','position:relative;top:50%;transform: translateY(-50%);');
+					a.appendChild(document.createTextNode(text));
+					return a;
+				})());
 				return button;
 			};
 
@@ -1133,7 +1151,7 @@ var SvgScene=function(){
 				return s+'</group>'+viewPort.toString()+'</scene>';
 			};
 
-			where.appendChild(makeButton({left:'15%',bottom:0},'hoi2', function(){showShapeList(sceneShapeList());}, function(){},0.5,{width:'15%',height:'10%'}));
+			where.appendChild(makeButton({left:'15%',bottom:0},'shapes', function(){showShapeList(sceneShapeList());}, function(){},0.5,{width:'15%',height:'10%'}));
 			var shapeListDialog=(function(){
 				var shapeListDialog=document.createElement('div');
 				shapeListDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color: rgb(50,50,50);padding:0px;width:40%;height:100%;display:none;font-family:Arial;opacity:0.75');
@@ -1236,6 +1254,171 @@ var SvgScene=function(){
 				return table;
 			};
 			
+			var newSlideMover=function(move, moveAmountOn){
+				var mouseDown=false;
+				var currentMoveAmount;
+				var doMove=function(){
+					if(mouseDown){
+						move(currentMoveAmount);
+						setTimeout(doMove, 50);
+					}
+				};
+				var setMoveAmount=function(x,y){
+					currentMoveAmount=moveAmountOn(x,y);
+				};
+				return {
+					onmousedown: function(x,y){
+						setMoveAmount(x,y);
+						mouseDown=true;
+						doMove();
+					},
+					onmousemove: function(x,y){
+						if(mouseDown){setMoveAmount(x,y);}
+					},
+					onmouseup: function(){mouseDown=false;}
+				};
+			};
+
+			var makeSlider=function(offset, size, orientation, slidemover){
+				var rectangle=function(offset,size){
+					var node=document.createElement('div');
+					node.setAttribute('style',positionString(offset)+sizeString(size)+'background-color: rgb(100,100,100);border:1pt solid rgb(200,200,200);border-radius:3px;opacity:0.75');
+					return node;
+				};
+				var barR=1/3;
+				var handleR=1/8;
+				var whereXy=function(evt){return {x: evt.clientX-where.offsetLeft,y:evt.clientY-where.offsetTop};}
+				var slideBar=(function(){
+					var thisOffset;
+					if(orientation==0){
+						thisOffset=offset.left?{left:offset.left}:{right:offset.right};
+						if(offset.top){
+							thisOffset.top=offset.top+size.height*barR;
+						}else{
+							thisOffset.bottom=offset.bottom+size.height*barR;
+						}
+						return rectangle(thisOffset, {width:size.width,height: size.height*barR});
+					}else{
+						thisOffset=offset.top?{top:offset.top}:{bottom:offset.bottom};
+						if(offset.left){
+							thisOffset.left=offset.left+size.width*barR;
+						}else{
+							thisOffset.right=offset.right+size.width*barR;
+						}
+						return rectangle(thisOffset, {width:size.width*barR,height: size.height});
+					}
+				})();
+				var slideHandle=(function(){
+					var thisOffset;
+					if(orientation==0){
+						thisOffset=offset.top?{top:offset.top}:{bottom:offset.bottom};
+						if(offset.left){
+							thisOffset.left=offset.left+size.width*(1-handleR)/2;
+						}else{
+							thisOffset.right=offset.right+size.width*(1-handleR)/2;
+						}
+					}else{
+						thisOffset=offset.left?{left:offset.left}:{right:offset.right};
+						if(offset.top){
+							thisOffset.top=offset.top+size.height*(1-handleR)/2;
+						}else{
+							thisOffset.bottom=offset.bottom+size.height*(1-handleR)/2;
+						}
+					}
+					var handle=rectangle(thisOffset,orientation==0?{width:size.width*handleR,height:size.height}:{width:size.width,height:size.height*handleR});
+					return handle;
+				})();
+				var slidePositionHandlers=(function(){
+					var mouseDown=false;
+					var onMove, onUp;
+					var moverXy=(function(){
+						if(offset.left||offset.left==0){
+							if(offset.top||offset.top==0){
+								return function(evt){var xy=whereXy(evt);return {x:xy.x,y:xy.y};}
+							}else{
+								return function(evt){var xy=whereXy(evt);return {x:xy.x,y:h-xy.y};}
+							}
+						}else{
+							if(offset.top||offset.top==0){
+								return function(evt){var xy=whereXy(evt);return {x:w-xy.x,y:xy.y};}
+							}else{
+								return function(evt){var xy=whereXy(evt);return {x:w-xy.x,y:h-xy.y};}
+							}
+						}
+					})();
+					var onMoveAndUp=function(offsetDimension, sizeDimension, direction, smallDisplacement){
+						var mindim=offsetDimension;
+						var maxdim=offsetDimension+sizeDimension;
+						var initdim=offsetDimension+sizeDimension*(1-handleR)/2;
+						var onMove=function(evt){
+							if(mouseDown){
+								preventDefault(evt);
+								var mxy=whereXy(evt);
+								var xy=moverXy(evt);
+								var mouseDim=(direction%2==0)?mxy.x:mxy.y;
+								var dimFull=(direction%2==0)?w:h;
+								var mouseDim=(direction>1)?dimFull-mouseDim:mouseDim;
+								if(slidemover){slidemover.onmousemove(xy.x,xy.y);}
+								var newDim=(mouseDim<=mindim)?mindim:((mouseDim>=maxdim)?maxdim:mouseDim-sizeDimension*handleR/2+smallDisplacement);
+								switch(direction){
+									case 0: slideHandle.style.left=newDim; break;
+									case 1: slideHandle.style.top=newDim; break;
+									case 2: slideHandle.style.right=newDim; break;
+									case 3: slideHandle.style.bottom=newDim; break;
+								}
+							}
+						};
+						var onUp=function(){
+							switch(direction){
+								case 0: slideHandle.style.left=initdim; break;
+								case 1: slideHandle.style.top=initdim; break;
+								case 2: slideHandle.style.right=initdim; break;
+								case 3: slideHandle.style.bottom=initdim; break;
+							}
+							mouseDown=false;
+							if(slidemover){slidemover.onmouseup();}
+						};
+						return {move:onMove,up:onUp};
+					};
+					if(orientation==0){
+						if(offset.left||offset.left==0){
+							var mu=onMoveAndUp(offset.left, size.width, 0, -2);
+							onMove=mu.move;
+							upUp=mu.up;
+
+						}else{
+							var mu=onMoveAndUp(offset.right, size.width, 2, 2);
+							onMove=mu.move;
+							onUp=mu.up;
+						}
+					}else{
+						if(offset.top||offset.top==0){
+							var mu=onMoveAndUp(offset.top, size.height, 1, -2);
+							onMove=mu.move;
+							onUp=mu.up;
+						}else{
+							var mu=onMoveAndUp(offset.bottom, size.height, 3, 2);
+							onMove=mu.move;
+							onUp=mu.up;
+						}
+					}
+					var onDown=function(evt){mouseDown=true;if(slidemover){var xy=moverXy(evt);slidemover.onmousedown(xy.x, xy.y);}};
+					return {onDown:onDown,onMove:onMove,onUp:onUp};
+				})();
+				slideHandle.onmousedown=slidePositionHandlers.onDown;
+				slideHandle.onmousemove=slidePositionHandlers.onMove;
+				slideHandle.onmouseup=slidePositionHandlers.onUp;
+				slideHandle.onmouseleave=slidePositionHandlers.onUp;
+				return {bar:slideBar,handle:slideHandle};
+			};
+
+			var slider1=makeSlider({right:20,top:20}, {width:10,height:150},1,newSlideMover(function(amount){viewPort.scale(amount);drawThings();}, function(x,y){return 1+(y-95)/500;}));
+			where.appendChild(slider1.bar);
+			where.appendChild(slider1.handle);
+
+			var slider2=makeSlider({right:20,bottom:20}, {width:150,height:10},0,newSlideMover(function(amount){viewPort.rotZ(amount);drawThings();}, function(x,y){return (x-95)/100}));
+			where.appendChild(slider2.bar);
+			where.appendChild(slider2.handle);
 
 			//END buttons and such
 
@@ -1244,12 +1427,16 @@ var SvgScene=function(){
 				if(currentOnLoad){currentOnLoad();}
 				(function(){
 					console.log("begin adding shapes...");
-					var l=0.25;
-					PlaneFactory.makePlane(Point(0,-1,0),Point(0,1,0),Color(0,255,0));
+					if(shapes_){
+						for(var i=0;i<shapes_.length;i++){
+							console.log(shapes_[i].type);
+							switch(shapes_[i].type){
+								case "sphere": SphereFactory.makeSphere(Point(shapes_[i].center[0], shapes_[i].center[1], shapes_[i].center[2]),shapes_[i].radius, Color(shapes_[i].color[0], shapes_[i].color[1], shapes_[i].color[2])); break;
+								case "plane": PlaneFactory.makePlane(Point(shapes_[i].point[0],shapes_[i].point[1],shapes_[i].point[2]), Point(shapes_[i].normal[0],shapes_[i].normal[1],shapes_[i].normal[2]), Color(shapes_[i].color[0], shapes_[i].color[1], shapes_[i].color[2])); break;
 
-					
-
-					SphereFactory.makeSphere(Point(l,l,l), 0.1,Color(255,255,0));
+							}
+						}
+					}
 
 					
 					console.log("finish adding shapes");
@@ -1274,19 +1461,26 @@ var SvgScene=function(){
 	})();
 
 	var sc={
-		init: function(where){
-			svg.init(where);
+		init: function(where, shapes){
+			svg.init(where, shapes);
 			delete sc.init;
 		}
 	};
 	return sc;
 };
 
-var scene1=new SvgScene();
-scene1.init(document.getElementById("viewPort"));
 
-// var scene2=new SvgScene();
-// scene2.init(document.getElementById("viewPort2"));
+var scene1=new SvgScene();
+scene1.init(document.getElementById("viewPort"), [
+	{type: "plane", point: [0,-1,0], normal: [0,1,0], color:[0,255,0]},
+	{type: "sphere",center: [0.25,0.25,0.25],radius:0.1,color:[255,255,0]}
+]);
+
+var scene2=new SvgScene();
+scene2.init(document.getElementById("viewPort2"),[
+	{type: "plane", point: [-2,0,0], normal: [1,0,0], color:[255,0,0]},
+	{type: "sphere",center: [0,0,0],radius:0.3,color:[0,255,255]}
+]);
 
 
 
