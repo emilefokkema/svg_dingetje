@@ -524,6 +524,10 @@ var SvgScene=function(){
 			var setPointAndNormal=function(point_, normal_){
 				if(!point_.equals(point)||!normal_.equals(normal)){
 					console.log("[plane] setting point "+point_.toString()+" and normal "+normal_.toString()+"!");
+					point=point_;
+					normal=normal_;
+					setAxes();
+					setGrid();
 				}
 			};
 			var toString=function(){
@@ -1114,7 +1118,7 @@ var SvgScene=function(){
 				return table;
 			};
 
-			where.appendChild(makeButton({left:0,bottom:0},'XML',function(){showXml(sceneXml());}, function(){},0.5,{width:'15%',height:'10%'}));
+			where.appendChild(makeButton({left:0,bottom:0},'XML',function(){showXml(sceneXml());}, function(){},0.75,{width:'15%',height:'10%'}));
 			var xmlDialog=(function(){
 				var xmlDialog=document.createElement('div');
 				xmlDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;opacity:0.75');
@@ -1159,15 +1163,17 @@ var SvgScene=function(){
 				return s+'</group>'+viewPort.toString()+'</scene>';
 			};
 
-			where.appendChild(makeButton({left:'15%',bottom:0},'shapes', function(){showShapeList(sceneShapeList());}, function(){},0.5,{width:'15%',height:'10%'}));
+			where.appendChild(makeButton({left:'15%',bottom:0},'shapes', function(){showShapeList(sceneShapeList());}, function(){},0.75,{width:'15%',height:'10%'}));
 			var shapeListDialog=(function(){
 				var shapeListDialog=document.createElement('div');
 				var onEdit=function(){};
+				var onAddPlane=function(){};
 				shapeListDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color: rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;font-family:Arial;opacity:0.75');
-				var button=makeButton({},'DONE',function(){shapeListDialog.style.display='none';onEdit();}, function(){}, 1, {width:100});
+				var button=makeButton(null,'DONE',function(){shapeListDialog.style.display='none';onEdit();}, function(){}, 1, {width:100});
+				var button2=makeButton(null,'+ plane',function(){PlaneFactory.makePlane(Point(0,0,0),Point(0,1,0),Color(255,255,255));drawThings();showShapeList(sceneShapeList());}, function(){}, 1, {width:100});
 				var text=document.createElement('div');
 				text.setAttribute('style','width:100%;height:100%;overflow:scroll;padding:0px;margin:0px');
-				var table=makeTable([[text],[button]],['90%','10%']);
+				var table=makeTable([[text],[makeTable([[button,button2]])]],['90%','10%']);
 				shapeListDialog.appendChild(table);
 				where.appendChild(shapeListDialog);
 				return {dialog: shapeListDialog,text:text,setOnEdit: function(onEdit_){onEdit=onEdit_;}};
@@ -1176,9 +1182,9 @@ var SvgScene=function(){
 			var showShapeList=function(table){
 				shapeListDialog.dialog.style.display="initial";
 				shapeListDialog.text.innerHTML="";
-				shapeListDialog.text.appendChild(table.table);
+				shapeListDialog.text.appendChild(table.table());
 				shapeListDialog.setOnEdit(function(){
-					var onEdits=table.onEdits;
+					var onEdits=table.onEdits();
 					for(var i=0;i<onEdits.length;i++){
 						onEdits[i]();
 					}
@@ -1300,7 +1306,7 @@ var SvgScene=function(){
 				for(var i=0;i<rows.length;i++){
 					table.appendChild(rows[i]);
 				}
-				return {table: table, onEdits: onEdits};
+				return {table: function(){return table;}, onEdits: function(){return onEdits;}};
 			};
 			
 			var newSlideMover=function(move, moveAmountOn){
