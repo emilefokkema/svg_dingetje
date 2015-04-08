@@ -77,7 +77,9 @@ var SvgScene=function(){
 				},
 				perpendicularTo: function(p){return Math.abs(this.dot(p))<0.0005;},
 				isZero: function(){return x==0&&y==0&&z==0;},
+				equals: function(p){return x==p.x()&&y==p.y()&&z==p.z();},
 				sameDirection: function(p){return !this.isZero()&&!p.isZero()&&(this.dot(p)==this.norm()*p.norm());},
+				toString: function(){return '('+x+','+y+','+z+')';}
 			};
 			return p;
 		};
@@ -519,6 +521,11 @@ var SvgScene=function(){
 				thisSvg.setColor(color_);
 				for(var i in gridLines){gridLines[i].setColor(color_);}
 			};
+			var setPointAndNormal=function(point_, normal_){
+				if(!point_.equals(point)||!normal_.equals(normal)){
+					console.log("[plane] setting point "+point_.toString()+" and normal "+normal_.toString()+"!");
+				}
+			};
 			var toString=function(){
 				return '<plane reflection="0" diffusion="0.4" color="'+color.toString2()+'">'+
 				'<point x="'+point.x()+'" y="'+point.y()+'" z="'+point.z()+'"/>'+
@@ -550,7 +557,8 @@ var SvgScene=function(){
 				toString: toString,
 				point: function(){return point;},
 				normal: function(){return normal;},
-				color: function(){return color;}
+				color: function(){return color;},
+				setPointAndNormal: setPointAndNormal
 			};
 		};
 		var makePlane=function(point, normal, color){
@@ -1109,7 +1117,7 @@ var SvgScene=function(){
 			where.appendChild(makeButton({left:0,bottom:0},'XML',function(){showXml(sceneXml());}, function(){},0.5,{width:'15%',height:'10%'}));
 			var xmlDialog=(function(){
 				var xmlDialog=document.createElement('div');
-				xmlDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:100%;display:none;opacity:0.75');
+				xmlDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;opacity:0.75');
 				var button=makeButton(null,'OK',function(){xmlDialog.style.display='none';}, function(){}, 1, {width:100});
 				var text=document.createElement('textarea');
 				text.setAttribute('style', 'background-color:rgb(50,50,50);color: #FFFFFF;border: none;resize:none;width:100%;height:100%');
@@ -1154,26 +1162,34 @@ var SvgScene=function(){
 			where.appendChild(makeButton({left:'15%',bottom:0},'shapes', function(){showShapeList(sceneShapeList());}, function(){},0.5,{width:'15%',height:'10%'}));
 			var shapeListDialog=(function(){
 				var shapeListDialog=document.createElement('div');
-				shapeListDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color: rgb(50,50,50);padding:0px;width:40%;height:100%;display:none;font-family:Arial;opacity:0.75');
-				var button=makeButton({},'DONE',function(){shapeListDialog.style.display='none';}, function(){}, 1, {width:100});
+				var onEdit=function(){};
+				shapeListDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color: rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;font-family:Arial;opacity:0.75');
+				var button=makeButton({},'DONE',function(){shapeListDialog.style.display='none';onEdit();}, function(){}, 1, {width:100});
 				var text=document.createElement('div');
 				text.setAttribute('style','width:100%;height:100%;overflow:scroll;padding:0px;margin:0px');
 				var table=makeTable([[text],[button]],['90%','10%']);
 				shapeListDialog.appendChild(table);
 				where.appendChild(shapeListDialog);
-				return {dialog: shapeListDialog,text:text};
+				return {dialog: shapeListDialog,text:text,setOnEdit: function(onEdit_){onEdit=onEdit_;}};
 			})();
 
 			var showShapeList=function(table){
 				shapeListDialog.dialog.style.display="initial";
 				shapeListDialog.text.innerHTML="";
-				shapeListDialog.text.appendChild(table);
+				shapeListDialog.text.appendChild(table.table);
+				shapeListDialog.setOnEdit(function(){
+					var onEdits=table.onEdits;
+					for(var i=0;i<onEdits.length;i++){
+						onEdits[i]();
+					}
+					drawThings();
+				});
 			};
 			var sceneShapeList=function(){
 				var makeRow={
 					"valueBox": function(name, value, edit){
 						var box=document.createElement('div');
-						box.setAttribute('style','width:50px;border:1pt solid #FF0000');
+						box.setAttribute('style','width:50px');
 						box.appendChild(document.createTextNode(name+value));
 						var isEditable=false;
 						var onEdit;
@@ -1200,7 +1216,7 @@ var SvgScene=function(){
 					"pointBox": function(x,y,z,edit){
 						var nx=x,ny=y,nz=z;
 						var box=document.createElement('div');
-						box.setAttribute('style','border: 1pt solid rgb(150,150,150)');
+						//box.setAttribute('style','border: 1pt solid rgb(150,150,150)');
 						var valueBox1=this["valueBox"]('x: ', x, function(v){nx=v;});
 						var valueBox2=this["valueBox"]('y: ', y, function(v){ny=v;});
 						var valueBox3=this["valueBox"]('z: ', z, function(v){nz=v;});
@@ -1218,7 +1234,7 @@ var SvgScene=function(){
 					},
 					"rowContainer": function(title, content){
 						var row=document.createElement('div');
-						row.setAttribute('style','background-color:rgb(50,50,50);margin:5px;padding:2px;color:#FFFFFF');
+						row.setAttribute('style','background-color:rgb(75, 75, 75);margin:5px;padding:2px;color:#FFFFFF');
 						var titleDiv=document.createElement('div');
 						titleDiv.setAttribute('style','font-weight:bold');
 						titleDiv.appendChild(document.createTextNode(title));
@@ -1230,12 +1246,20 @@ var SvgScene=function(){
 					},
 					"plane": function(plane){
 						var content=document.createElement("div");
-						var point=plane.point();
-						content.appendChild(this["propertyRow"]('point: ', this["pointBox"](point.x(), point.y(), point.z()).box));
-						var normal=plane.normal();
-						content.appendChild(this["propertyRow"]('normal:', this["pointBox"](normal.x(), normal.y(), normal.z()).box));
-						content.appendChild(this["propertyRow"]('color:', this["colorBox"](plane.color())));
-						return this["rowContainer"]("plane",content);
+						var newpoint=plane.point();
+						var newnormal=plane.normal();
+						var newcolor=plane.color();
+						var pointEditor=this["pointBox"](newpoint.x(), newpoint.y(), newpoint.z(), function(x,y,z){
+							newpoint=Point(x,y,z);
+						});
+						var normalEditor=this["pointBox"](newnormal.x(), newnormal.y(), newnormal.z(), function(x,y,z){
+							newnormal=Point(x,y,z);
+						});
+						content.appendChild(this["propertyRow"]('point: ', pointEditor.box));
+						content.appendChild(this["propertyRow"]('normal:', normalEditor.box));
+						content.appendChild(this["propertyRow"]('color:', this["colorBox"](newcolor)));
+						var onEdit=function(){pointEditor.onEdit();normalEditor.onEdit();plane.setPointAndNormal(newpoint, newnormal);};
+						return {row: this["rowContainer"]("plane",content),onEdit:onEdit};
 					},
 					"sphere": function(sphere){
 						var content=document.createElement("div");
@@ -1255,13 +1279,17 @@ var SvgScene=function(){
 					}
 				};
 				var rows=[];
+				var onEdits=[];
+				var row;
 				var lightSources=SphereFactory.lightSources();
 				for(var i=0;i<lightSources.length;i++){
 					rows.push(makeRow["lightsource"](lightSources[i]));
 				}
 				var planes=PlaneFactory.planes();
 				for(var i=0;i<planes.length;i++){
-					rows.push(makeRow["plane"](planes[i]));
+					row=makeRow["plane"](planes[i]);
+					onEdits.push(row.onEdit);
+					rows.push(row.row);
 				}
 				var spheres=SphereFactory.spheres();
 				for(var i=0;i<spheres.length;i++){
@@ -1272,7 +1300,7 @@ var SvgScene=function(){
 				for(var i=0;i<rows.length;i++){
 					table.appendChild(rows[i]);
 				}
-				return table;
+				return {table: table, onEdits: onEdits};
 			};
 			
 			var newSlideMover=function(move, moveAmountOn){
