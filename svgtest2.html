@@ -3,7 +3,7 @@
 	<title>SVG test 2</title>
 </head>
 <body style="overflow: hidden;background-color:rgb(0,0,0)">
-	<div style="position:relative;border:1px solid #000000;width:100%;height:100%;background-color:#000000" id="viewPort"></div>
+	<div style="position:relative;border:1px solid #000000;width:100%;height:100%;background-color:#333333" id="viewPort"></div>
 	<!-- <div style="position:relative;border:1px solid #000000;width:100%;height:50%;background-color:#000000" id="viewPort2"></div> -->
 
 <script language="JavaScript">
@@ -14,7 +14,10 @@ var SvgScene=function(){
 		var b=b_;
 		return {
 			toString: function(){return "rgb("+r+", "+g+", "+b+")";},
-			toString2: function(){return r+","+g+","+b;}
+			toString2: function(){return r+","+g+","+b;},
+			r: function(){return r},
+			g: function(){return g},
+			b: function(){return b},
 		};
 	}
 
@@ -237,7 +240,7 @@ var SvgScene=function(){
 		var leftTop=Point(1, 1, -1);
 		var leftAxis=Point(-1,0,0);
 		var topAxis=Point(0,-1,0);
-		var viewPoint=Point(0,0,-3);
+		var viewPoint=Point(0,0,-2);
 		var setSize=function(){
 			var r=h/w;
 			leftTop=Point(0.5, 0.5*r,-1);
@@ -312,6 +315,10 @@ var SvgScene=function(){
 			viewPoint=viewPoint.scale(r);
 			normal=leftAxis.cross(topAxis);
 		};
+		var scale2=function(r){
+			var middleOfView=leftTop.plus(leftAxis.plus(topAxis).scale(0.5));
+			viewPoint=middleOfView.plus(viewPoint.minus(middleOfView).scale(r));
+		};
 		var toString=function(){
 			var s='<viewport w="'+w+'" h="'+h+'">';
 			s+='<lefttop x="'+leftTop.x()+'" y="'+leftTop.y()+'" z="'+leftTop.z()+'" />';
@@ -336,6 +343,7 @@ var SvgScene=function(){
 			getVisiblePointsOn: getVisiblePointsOn,
 			toString: toString,
 			scale: scale,
+			scale2: scale2,
 			horizonLt: horizonLt
 		};
 	})();
@@ -615,6 +623,13 @@ var SvgScene=function(){
 				thisSvg.setColor(color);
 				for(var i in gridLineSegments){gridLineSegments[i].setColor(color_);}
 			};
+			var setCenterAndRadius=function(center_,radius_){
+				if(!center_.equals(center)||radius_!=radius){
+					center=center_;
+					radius=radius_;
+					setGrid();
+				}
+			};
 			var pointWithCoords=function(lo, la){
 				return center.plus(xu.rotate(or, 2, la).rotate(or, 1, lo).scale(radius));
 			};
@@ -687,7 +702,8 @@ var SvgScene=function(){
 				toString: toString,
 				center: function(){return center;},
 				radius: function(){return radius;},
-				color: function(){return color;}
+				color: function(){return color;},
+				setCenterAndRadius: setCenterAndRadius
 			};
 		};
 		var makeSphere=function(center, radius, color){
@@ -993,6 +1009,7 @@ var SvgScene=function(){
 		var svgObject={};
 		var init=function(where_, shapes_){
 			where=where_;
+			where.style.backgroundColor=Color(0,0,0).toString();
 			var makeAxisAndLabel=function(axisName){
 				var NS="http://www.w3.org/2000/svg";
 				var line=document.createElementNS(NS,'line');
@@ -1043,12 +1060,11 @@ var SvgScene=function(){
 
 			drawAxes=function(){
 				var orlt=viewPort.lt(or);
-				var ult=[viewPort.lt(xu), viewPort.lt(yu), viewPort.lt(zu)];
-				var nn=["x","y","z"];
-				var n, lt, i, axis, label;
+				var u=[xu, yu, zu];
+				var lt, i, axis, label, visible;
 				for(i=0;i<3;i++){
-					n=nn[i];
-					lt=ult[i];
+					visible=viewPort.getVisiblePointsBetween(or, u[i]);
+					lt=visible[1];
 					axis=axesAndLabels[i].axis;
 					label=axesAndLabels[i].label;
 					axis.setAttribute("x1", orlt.left);
@@ -1083,13 +1099,14 @@ var SvgScene=function(){
 					
 					onmousedown.call(null);
 				};
+				button.onmouseover=function(){button.style.backgroundColor='rgb(150,150,150)';};
 				var stopFunction=function(){
 					if(onmouseup){
 						onmouseup.call(null);
 					}
 				};
 				button.onmouseup=stopFunction;
-				button.onmouseleave=stopFunction;
+				button.onmouseleave=function(){stopFunction();button.style.backgroundColor='rgb(50,50,50)';};
 				//button.onmouseup=onmouseup||function(){};
 				button.appendChild((function(){
 					var a=document.createElement('a');
@@ -1118,7 +1135,7 @@ var SvgScene=function(){
 				return table;
 			};
 
-			where.appendChild(makeButton({left:0,bottom:0},'XML',function(){showXml(sceneXml());}, function(){},0.75,{width:'15%',height:'10%'}));
+			where.appendChild(makeButton({left:0,bottom:0},'XML',function(){xmlDialog.showXml(sceneXml());}, function(){},0.75,{width:'15%',height:'10%'}));
 			var xmlDialog=(function(){
 				var xmlDialog=document.createElement('div');
 				xmlDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;opacity:0.75');
@@ -1128,24 +1145,24 @@ var SvgScene=function(){
 				var table=makeTable([[text],[button]],['90%','10%']);
 				xmlDialog.appendChild(table);
 				where.appendChild(xmlDialog);
-				return {dialog: xmlDialog,text: text};
+				var showXml=function(string){
+					var s=string;
+					var lines=s.split('<');
+					var indent='';
+					var minus, equal, line;
+					for(var i=1;i<lines.length;i++){
+						line=lines[i];
+						if(line[0]=='/'){indent=indent.substring(2);}
+						lines[i]=indent+'<'+line;
+						if(line[0]!='/'&&line.slice(-2)!='/>'){indent=indent+'  ';}
+					}
+					var s1=lines.join('\n').replace(/^\n/g, '');
+					xmlDialog.style.display="initial";
+					text.value=s1;
+				};
+				return {dialog: xmlDialog,text: text,showXml:showXml};
 			})();
 
-			var showXml=function(string){
-				var s=string;
-				var lines=s.split('<');
-				var indent='';
-				var minus, equal, line;
-				for(var i=1;i<lines.length;i++){
-					line=lines[i];
-					if(line[0]=='/'){indent=indent.substring(2);}
-					lines[i]=indent+'<'+line;
-					if(line[0]!='/'&&line.slice(-2)!='/>'){indent=indent+'  ';}
-				}
-				var s1=lines.join('\n').replace(/^\n/g, '');
-				xmlDialog.dialog.style.display="initial";
-				xmlDialog.text.value=s1;
-			};
 			var sceneXml=function(){
 				var s='<?xml version="1.0" encoding="UTF-8"?><scene xmlns="http://www.sogyo.nl/efokkema_raytrace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ><group>';
 				var planes=PlaneFactory.planes();
@@ -1163,34 +1180,48 @@ var SvgScene=function(){
 				return s+'</group>'+viewPort.toString()+'</scene>';
 			};
 
-			where.appendChild(makeButton({left:'15%',bottom:0},'shapes', function(){showShapeList(sceneShapeList());}, function(){},0.75,{width:'15%',height:'10%'}));
+			where.appendChild(makeButton({left:'15%',bottom:0},'shapes', function(){shapeListDialog.showShapeList(sceneShapeList());}, function(){},0.75,{width:'15%',height:'10%'}));
 			var shapeListDialog=(function(){
 				var shapeListDialog=document.createElement('div');
 				var onEdit=function(){};
-				var onAddPlane=function(){};
+				var dropDown;
 				shapeListDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color: rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;font-family:Arial;opacity:0.75');
-				var button=makeButton(null,'DONE',function(){shapeListDialog.style.display='none';onEdit();}, function(){}, 1, {width:100});
-				var button2=makeButton(null,'+ plane',function(){PlaneFactory.makePlane(Point(0,0,0),Point(0,1,0),Color(255,255,255));drawThings();showShapeList(sceneShapeList());}, function(){}, 1, {width:100});
+				var button=makeButton(null,'DONE',function(){dropDown.hide();shapeListDialog.style.display='none';onEdit();}, function(){}, 1, {width:100,height:50});
+				var button2=makeButton(null,'+',function(){dropDown.show();}, function(){}, 1, {width:100,height:50});
 				var text=document.createElement('div');
 				text.setAttribute('style','width:100%;height:100%;overflow:scroll;padding:0px;margin:0px');
 				var table=makeTable([[text],[makeTable([[button,button2]])]],['90%','10%']);
 				shapeListDialog.appendChild(table);
+				dropDown=(function(){
+					var dropDown=document.createElement('div');
+					dropDown.setAttribute('style', 'position:absolute;right:0;bottom:10%;padding:0px;display:none');
+					var button1=makeButton(null,'plane',function(){hide();PlaneFactory.makePlane(Point(0,0,0),Point(0,1,0),Color(255,255,255));drawThings();showShapeList(sceneShapeList());}, function(){}, 1, {width:100,height:50});
+					var button2=makeButton(null,'sphere',function(){hide();SphereFactory.makeSphere(Point(0,0,0),0.1,Color(255,255,255));drawThings();showShapeList(sceneShapeList());}, function(){}, 1, {width:100,height:50});
+					dropDown.appendChild(makeTable([[button1],[button2]]));
+					shapeListDialog.appendChild(dropDown);
+					var hide=function(){dropDown.style.display="none";};
+					return {show: function(){dropDown.style.display="initial";},hide:hide};
+				})();
+				var showShapeList=function(table){
+					shapeListDialog.style.display="initial";
+					text.innerHTML="";
+					text.appendChild(table.table());
+					onEdit=function(){
+						var onEdits=table.onEdits();
+						for(var i=0;i<onEdits.length;i++){
+							onEdits[i]();
+						}
+						drawThings();
+					};
+				};
+				var append=function(thing){
+					shapeListDialog.appendChild(thing);
+				};
+				var remove=function(thing){shapeListDialog.removeChild(thing);};
 				where.appendChild(shapeListDialog);
-				return {dialog: shapeListDialog,text:text,setOnEdit: function(onEdit_){onEdit=onEdit_;}};
+				return {showShapeList: showShapeList, append: append, remove: remove};
 			})();
 
-			var showShapeList=function(table){
-				shapeListDialog.dialog.style.display="initial";
-				shapeListDialog.text.innerHTML="";
-				shapeListDialog.text.appendChild(table.table());
-				shapeListDialog.setOnEdit(function(){
-					var onEdits=table.onEdits();
-					for(var i=0;i<onEdits.length;i++){
-						onEdits[i]();
-					}
-					drawThings();
-				});
-			};
 			var sceneShapeList=function(){
 				var makeRow={
 					"valueBox": function(name, value, edit){
@@ -1214,10 +1245,45 @@ var SvgScene=function(){
 						};
 						return {box:box,onEdit:onEdit};
 					},
-					"colorBox": function(color){
+					"colorBox": function(color,edit){
+						var self=this;
 						var box=document.createElement('div');
-						box.setAttribute('style','border: 1pt solid #000000;width:40px;height:40px;background-color: '+color.toString());
-						return box;
+						var currentcolor=color;
+						var picker=(function(color_,edit){
+							var picker=document.createElement('div');
+							picker.setAttribute('style','position: absolute;left:0;top:0;padding:0px;display:none;background-color:rgb(50,50,50);padding:5px;font-family:inherit;color:#FFFFFF');
+							var currentcolor=color_;
+							var currentr=currentcolor.r();
+							var currentg=currentcolor.g();
+							var currentb=currentcolor.b();
+							var content=(function(){
+								var sample=document.createElement('div');
+								sample.setAttribute('style','width:40px;height:40px;border: 1pt solid #000000;background-color: '+currentcolor.toString());
+								var button=makeButton(null,'OK',function(){
+									hide();
+									rBox.onEdit();
+									gBox.onEdit();
+									bBox.onEdit();
+									currentcolor=Color(currentr, currentg, currentb);
+									sample.style.backgroundColor=currentcolor.toString();
+									edit(currentcolor);
+								}, function(){}, 1, {width:75,height:30});
+								var rBox=self["valueBox"]('r:',currentr,function(r){currentr=r;});
+								var gBox=self["valueBox"]('g:',currentg,function(r){currentg=r;});
+								var bBox=self["valueBox"]('b:',currentb,function(r){currentb=r;});
+								return makeTable([[makeTable([[sample, makeTable([[rBox.box],[gBox.box],[bBox.box]])]])],[button]]);
+							})();
+							picker.appendChild(content);
+							shapeListDialog.append(picker);
+							var show=function(){picker.style.display="initial";};
+							var hide=function(){picker.style.display="none";};
+							var remove=function(){shapeListDialog.remove(picker);}
+							return {show:show,remove:remove};
+						})(currentcolor, function(color_){box.style.backgroundColor=color_.toString();currentcolor=color_;});
+						box.setAttribute('style','border: 1pt solid #000000;cursor: hand;width:40px;height:40px;background-color: '+color.toString());
+						box.onclick=function(){picker.show();};
+						var onEdit=function(){picker.remove();if(edit){edit(currentcolor);}};
+						return {box:box,onEdit:onEdit};
 					},
 					"pointBox": function(x,y,z,edit){
 						var nx=x,ny=y,nz=z;
@@ -1261,19 +1327,29 @@ var SvgScene=function(){
 						var normalEditor=this["pointBox"](newnormal.x(), newnormal.y(), newnormal.z(), function(x,y,z){
 							newnormal=Point(x,y,z);
 						});
+						var colorEditor=this["colorBox"](newcolor,function(color_){newcolor=color_;});
 						content.appendChild(this["propertyRow"]('point: ', pointEditor.box));
 						content.appendChild(this["propertyRow"]('normal:', normalEditor.box));
-						content.appendChild(this["propertyRow"]('color:', this["colorBox"](newcolor)));
-						var onEdit=function(){pointEditor.onEdit();normalEditor.onEdit();plane.setPointAndNormal(newpoint, newnormal);};
+						content.appendChild(this["propertyRow"]('color:', colorEditor.box));
+						var onEdit=function(){pointEditor.onEdit();normalEditor.onEdit();colorEditor.onEdit();plane.setPointAndNormal(newpoint, newnormal);plane.setColor(newcolor);};
 						return {row: this["rowContainer"]("plane",content),onEdit:onEdit};
 					},
 					"sphere": function(sphere){
 						var content=document.createElement("div");
-						var center=sphere.center();
-						content.appendChild(this["propertyRow"]('center: ', this["pointBox"](center.x(), center.y(), center.z()).box));
-						content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', sphere.radius()).box));
-						content.appendChild(this["propertyRow"]('color:', this["colorBox"](sphere.color())));
-						return this["rowContainer"]("sphere",content);
+						var newcenter=sphere.center();
+						var newradius=sphere.radius();
+						var newcolor=sphere.color();
+						var centerEditor=this["pointBox"](newcenter.x(), newcenter.y(), newcenter.z(), function(x,y,z){
+							newcenter=Point(x,y,z);
+						});
+						var radiusEditor=this["valueBox"]('',newradius, function(r){newradius=r;});
+						var colorEditor=this["colorBox"](newcolor, function(color_){newcolor=color_;});
+						content.appendChild(this["propertyRow"]('center: ', centerEditor.box));
+						content.appendChild(this["propertyRow"]('radius: ',radiusEditor.box));
+						content.appendChild(this["propertyRow"]('color:', colorEditor.box));
+						var onEdit=function(){centerEditor.onEdit();radiusEditor.onEdit();colorEditor.onEdit();sphere.setCenterAndRadius(newcenter, newradius);sphere.setColor(newcolor);};
+						return {row: this["rowContainer"]("sphere",content), onEdit:onEdit};
+						//return this["rowContainer"]("sphere",content);
 					},
 					"lightsource": function(lightSource){
 						var content=document.createElement("div");
@@ -1299,7 +1375,9 @@ var SvgScene=function(){
 				}
 				var spheres=SphereFactory.spheres();
 				for(var i=0;i<spheres.length;i++){
-					rows.push(makeRow["sphere"](spheres[i]));
+					row=makeRow["sphere"](spheres[i]);
+					onEdits.push(row.onEdit);
+					rows.push(row.row);
 				}
 				var table=document.createElement('div');
 				table.setAttribute('style','width:100%;height:100%');
@@ -1471,6 +1549,11 @@ var SvgScene=function(){
 			where.appendChild(slider1.bar);
 			where.appendChild(slider1.handle);
 
+			var slider3=makeSlider({right:40,top:20}, {width:10,height:150},1,newSlideMover(function(amount){viewPort.scale2(amount);drawThings();}, function(x,y){return 1+(y-95)/500;}));
+			where.appendChild(slider3.bar);
+			where.appendChild(slider3.handle);
+
+
 			var slider2=makeSlider({right:20,bottom:20}, {width:150,height:10},0,newSlideMover(function(amount){viewPort.rotZ(amount);drawThings();}, function(x,y){return (x-95)/100}));
 			where.appendChild(slider2.bar);
 			where.appendChild(slider2.handle);
@@ -1527,9 +1610,9 @@ var SvgScene=function(){
 
 var scene1=new SvgScene();
 scene1.init(document.getElementById("viewPort"), [
-	{type: "plane", point: [0,-1,0], normal: [0,1,0], color:[0,255,0]},
-	{type: "sphere",center: [0.25,0.25,0.25],radius:0.1,color:[255,255,0]},
-	{type: "sphere",center: [0.5,0.75,0.25],radius:0.1,color:[255,0,255]}
+	//{type: "plane", point: [0,-1,0], normal: [0,1,0], color:[0,255,0]},
+	//{type: "sphere",center: [0.25,0.25,0.25],radius:0.1,color:[255,255,0]},
+	//{type: "sphere",center: [0.5,0.75,0.25],radius:0.1,color:[255,0,255]}
 ]);
 
 // var scene2=new SvgScene();
