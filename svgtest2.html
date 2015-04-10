@@ -251,6 +251,14 @@ var SvgScene=function(){
 			leftAxis=leftAxis.scale(r);
 			topAxis=topAxis.scale(r);
 		};
+		var setUp=function(leftTop_, leftAxis_, topAxis_, viewPoint_){
+			leftTop=leftTop_;
+			leftAxis=leftAxis_;
+			topAxis=topAxis_.unit().scale(leftAxis_.norm()*h/w);
+			normal=leftAxis.cross(topAxis);
+			viewPoint=viewPoint_;
+			//TODO: make sure the origin ends up in the middle?
+		};
 		var horizonLt=function(line){
 			var direction=line.baseVector();
 			if(direction.perpendicularTo(normal)){return null;}
@@ -272,6 +280,7 @@ var SvgScene=function(){
 			if(ltp1==null&&ltp2==null){return [null, null];}
 			if(ltp1!=null&&ltp2!=null){return [ltp1, ltp2];}
 			var p3=Line(p1,p2).intersectWithPlane(viewPoint, normal);
+			if(p3==null){return [null, null];}
 			if(ltp1==null){
 				return [lt(p2.plus(p3).scale(0.5)), ltp2];
 			}
@@ -328,6 +337,9 @@ var SvgScene=function(){
 			s+='</viewport>';
 			return s;
 		};
+		var toString2=function(){
+			return '{lefttop: ['+leftTop.x()+','+leftTop.y()+','+leftTop.z()+'], leftaxis: ['+leftAxis.x()+','+leftAxis.y()+','+leftAxis.z()+'], topaxis: ['+topAxis.x()+','+topAxis.y()+','+topAxis.z()+'], viewpoint: ['+viewPoint.x()+','+viewPoint.y()+','+viewPoint.z()+']}';
+		};
 		return {
 			lt: lt,
 			setWh: function(w_, h_){w=w_; h=h_; setSize();},
@@ -342,9 +354,11 @@ var SvgScene=function(){
 			getVisiblePointsBetween: getVisiblePointsBetween,
 			getVisiblePointsOn: getVisiblePointsOn,
 			toString: toString,
+			toString2: toString2,
 			scale: scale,
 			scale2: scale2,
-			horizonLt: horizonLt
+			horizonLt: horizonLt,
+			setUp: setUp
 		};
 	})();
 	
@@ -391,9 +405,13 @@ var SvgScene=function(){
 			currentNumber++;
 			return ls;
 		};
+		var draw=function(){for(var i=0;i<lineSegments.length;i++){
+			lineSegments[i].draw();
+		}};
 		return {
 			makeLineSegment: makeLineSegment,
-			lineSegments: function(){return lineSegments;}
+			lineSegments: function(){return lineSegments;},
+			draw: draw
 		};
 	})();
 
@@ -445,9 +463,15 @@ var SvgScene=function(){
 			currentNumber++;
 			return ll;
 		};
+		var draw=function(){
+			for(var i=0;i<lineLines.length;i++){
+				lineLines[i].draw();
+			}
+		};
 		return {
 			makeLineLine: makeLineLine,
-			lineLines: function(){return lineLines;}
+			lineLines: function(){return lineLines;},
+			draw: draw
 		};
 	})();
 
@@ -539,10 +563,13 @@ var SvgScene=function(){
 				}
 			};
 			var toString=function(){
-				return '<plane reflection="0" diffusion="0.4" color="'+color.toString2()+'">'+
+				return '<plane reflection="0.5" diffusion="0.5" color="'+color.toString2()+'">'+
 				'<point x="'+point.x()+'" y="'+point.y()+'" z="'+point.z()+'"/>'+
 				'<normal x="'+normal.x()+'" y="'+normal.y()+'" z="'+normal.z()+'"/>'+
 				'</plane>';
+			};
+			var toString2=function(){
+				return '{type: "plane", point: ['+point.x()+','+point.y()+','+point.z()+'], normal: ['+normal.x()+','+normal.y()+','+normal.z()+'], color: ['+color.toString2()+']}';
 			};
 			var setSvg=function(svg_){
 				thisSvg=svg_;
@@ -567,6 +594,7 @@ var SvgScene=function(){
 				setColor: setColor,
 				setSvg: function(svg_){setSvg(svg_);return this;},
 				toString: toString,
+				toString2: toString2,
 				point: function(){return point;},
 				normal: function(){return normal;},
 				color: function(){return color;},
@@ -582,9 +610,11 @@ var SvgScene=function(){
 			currentNumber++;
 			return p;
 		};
+		var draw=function(){for(var i=0;i<planes.length;i++){planes[i].draw();}};
 		return {
 			makePlane: makePlane,
-			planes: function(){return planes;}
+			planes: function(){return planes;},
+			draw:draw
 		};
 	})();
 
@@ -667,7 +697,7 @@ var SvgScene=function(){
 			var toString=(function(){
 				if(!toBecomeLightSource){
 					return function(){
-						var s='<sphere reflection="0" diffusion="0.4" color="'+color.toString2()+'" radius="'+radius+'">'+
+						var s='<sphere reflection="0.5" diffusion="0.5" color="'+color.toString2()+'" radius="'+radius+'">'+
 						'<center x="'+center.x()+'" y="'+center.y()+'" z="'+center.z()+'" />'+
 						'</sphere>';
 						return s;
@@ -678,6 +708,18 @@ var SvgScene=function(){
 						'<location x="'+center.x()+'" y="'+center.y()+'" z="'+center.z()+'" />'+
 						'</lightsource>';
 						return s;
+					};
+				}
+			})();
+			var toString2=(function(){
+				if(!toBecomeLightSource){
+					return function(){
+						//{type: "sphere",center: [0.25,0.25,0.25],radius:0.1,color:[255,255,0]},
+						return '{type: "sphere", center: ['+center.x()+','+center.y()+','+center.z()+'], radius: '+radius+', color: ['+color.toString2()+']}';
+					};
+				}else{
+					return function(){
+						return '{type: "lightsource", center: ['+center.x()+','+center.y()+','+center.z()+'], radius: '+radius+', color: ['+color.toString2()+']}';
 					};
 				}
 			})();
@@ -700,6 +742,7 @@ var SvgScene=function(){
 				setColor: setColor,
 				setSvg: function(svg_){setSvg(svg_);return this;},
 				toString: toString,
+				toString2: toString2,
 				center: function(){return center;},
 				radius: function(){return radius;},
 				color: function(){return color;},
@@ -733,18 +776,21 @@ var SvgScene=function(){
 	var drawThings=function(){
 		svg.drawAxes();
 		var i;
-		var lineSegments=LineSegmentFactory.lineSegments();
-		for(i=0;i<lineSegments.length;i++){
-			lineSegments[i].draw();
-		}
-		var lineLines=LineLineFactory.lineLines();
-		for(i=0;i<lineLines.length;i++){
-			lineLines[i].draw();
-		}
-		var planes=PlaneFactory.planes();
-		for(i=0;i<planes.length;i++){
-			planes[i].draw();
-		}
+		// var lineSegments=LineSegmentFactory.lineSegments();
+		// for(i=0;i<lineSegments.length;i++){
+		// 	lineSegments[i].draw();
+		// }
+		LineSegmentFactory.draw();
+		// var lineLines=LineLineFactory.lineLines();
+		// for(i=0;i<lineLines.length;i++){
+		// 	lineLines[i].draw();
+		// }
+		LineLineFactory.draw();
+		// var planes=PlaneFactory.planes();
+		// for(i=0;i<planes.length;i++){
+		// 	planes[i].draw();
+		// }
+		PlaneFactory.draw();
 		var spheres=SphereFactory.spheres();
 		for(i=0;i<spheres.length;i++){
 			spheres[i].draw();
@@ -1060,11 +1106,13 @@ var SvgScene=function(){
 
 			drawAxes=function(){
 				var orlt=viewPort.lt(or);
+				if(orlt==null){orlt={left:0,top:0};}
 				var u=[xu, yu, zu];
 				var lt, i, axis, label, visible;
 				for(i=0;i<3;i++){
 					visible=viewPort.getVisiblePointsBetween(or, u[i]);
 					lt=visible[1];
+					if(lt==null){lt=orlt;}
 					axis=axesAndLabels[i].axis;
 					label=axesAndLabels[i].label;
 					axis.setAttribute("x1", orlt.left);
@@ -1195,9 +1243,10 @@ var SvgScene=function(){
 				dropDown=(function(){
 					var dropDown=document.createElement('div');
 					dropDown.setAttribute('style', 'position:absolute;right:0;bottom:10%;padding:0px;display:none');
-					var button1=makeButton(null,'plane',function(){hide();PlaneFactory.makePlane(Point(0,0,0),Point(0,1,0),Color(255,255,255));drawThings();showShapeList(sceneShapeList());}, function(){}, 1, {width:100,height:50});
-					var button2=makeButton(null,'sphere',function(){hide();SphereFactory.makeSphere(Point(0,0,0),0.1,Color(255,255,255));drawThings();showShapeList(sceneShapeList());}, function(){}, 1, {width:100,height:50});
-					dropDown.appendChild(makeTable([[button1],[button2]]));
+					var button1=makeButton(null,'plane',function(){hide();PlaneFactory.makePlane(Point(0,0,0),Point(0,1,0),Color(255,255,255));drawThings();showShapeList(sceneShapeList());}, function(){}, 1, {width:150,height:50});
+					var button2=makeButton(null,'sphere',function(){hide();SphereFactory.makeSphere(Point(0,0,0),0.1,Color(255,255,255));drawThings();showShapeList(sceneShapeList());}, function(){}, 1, {width:150,height:50});
+					var button3=makeButton(null,'light source',function(){hide();SphereFactory.makeLightSource(Point(0,0,0),0.1,Color(255,255,255));drawThings();showShapeList(sceneShapeList());}, function(){}, 1, {width:150,height:50});
+					dropDown.appendChild(makeTable([[button1],[button2],[button3]]));
 					shapeListDialog.appendChild(dropDown);
 					var hide=function(){dropDown.style.display="none";};
 					return {show: function(){dropDown.style.display="initial";},hide:hide};
@@ -1353,11 +1402,20 @@ var SvgScene=function(){
 					},
 					"lightsource": function(lightSource){
 						var content=document.createElement("div");
-						var center=lightSource.center();
-						content.appendChild(this["propertyRow"]('location: ', this["pointBox"](center.x(), center.y(), center.z()).box));
-						content.appendChild(this["propertyRow"]('radius: ',this["valueBox"]('', lightSource.radius()).box));
-						content.appendChild(this["propertyRow"]('color:', this["colorBox"](lightSource.color())));
-						return this["rowContainer"]("light source",content);
+						var newcenter=lightSource.center();
+						var newradius=lightSource.radius();
+						var newcolor=lightSource.color();
+						var centerEditor=this["pointBox"](newcenter.x(), newcenter.y(), newcenter.z(), function(x,y,z){
+							newcenter=Point(x,y,z);
+						});
+						var radiusEditor=this["valueBox"]('',newradius, function(r){newradius=r;});
+						var colorEditor=this["colorBox"](newcolor, function(color_){newcolor=color_;});
+						content.appendChild(this["propertyRow"]('location: ', centerEditor.box));
+						content.appendChild(this["propertyRow"]('radius: ',radiusEditor.box));
+						content.appendChild(this["propertyRow"]('color:', colorEditor.box));
+						var onEdit=function(){centerEditor.onEdit();radiusEditor.onEdit();colorEditor.onEdit();lightSource.setCenterAndRadius(newcenter, newradius);lightSource.setColor(newcolor);};
+						return {row: this["rowContainer"]("light source",content), onEdit:onEdit};
+						//return this["rowContainer"]("light source",content);
 					}
 				};
 				var rows=[];
@@ -1365,7 +1423,9 @@ var SvgScene=function(){
 				var row;
 				var lightSources=SphereFactory.lightSources();
 				for(var i=0;i<lightSources.length;i++){
-					rows.push(makeRow["lightsource"](lightSources[i]));
+					row=makeRow["lightsource"](lightSources[i]);
+					onEdits.push(row.onEdit);
+					rows.push(row.row);
 				}
 				var planes=PlaneFactory.planes();
 				for(var i=0;i<planes.length;i++){
@@ -1385,6 +1445,41 @@ var SvgScene=function(){
 					table.appendChild(rows[i]);
 				}
 				return {table: function(){return table;}, onEdits: function(){return onEdits;}};
+			};
+
+			where.appendChild(makeButton({left:'30%',bottom:0},'json',function(){jsonDialog.showJson(sceneJson());}, function(){},0.75,{width:'15%',height:'10%'}));
+			var jsonDialog=(function(){
+				var jsonDialog=document.createElement('div');
+				jsonDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;opacity:0.75');
+				var button=makeButton(null,'OK',function(){jsonDialog.style.display='none';}, function(){}, 1, {width:100});
+				var text=document.createElement('textarea');
+				text.setAttribute('style', 'background-color:rgb(50,50,50);color: #FFFFFF;border: none;resize:none;width:100%;height:100%');
+				var table=makeTable([[text],[button]],['90%','10%']);
+				jsonDialog.appendChild(table);
+				where.appendChild(jsonDialog);
+				var showJson=function(string){
+					var s1=string;
+					jsonDialog.style.display="initial";
+					text.value=s1;
+				};
+				return {dialog: jsonDialog,text: text,showJson:showJson};
+			})();
+
+			var sceneJson=function(){
+				var s=[];
+				var planes=PlaneFactory.planes();
+				for(var i=0;i<planes.length;i++){
+					s.push(planes[i].toString2());
+				}
+				var lightSources=SphereFactory.lightSources();
+				for(var i=0;i<lightSources.length;i++){
+					s.push(lightSources[i].toString2());
+				}
+				var spheres=SphereFactory.spheres();
+				for(var i=0;i<spheres.length;i++){
+					s.push(spheres[i].toString2());
+				}
+				return '{viewport: '+viewPort.toString2()+', shapes: ['+s.join(',')+']}';
 			};
 			
 			var newSlideMover=function(move, moveAmountOn){
@@ -1564,20 +1659,19 @@ var SvgScene=function(){
 			whereSvg.onload=function(){
 				if(currentOnLoad){currentOnLoad();}
 				(function(){
-					console.log("begin adding shapes...");
-					if(shapes_){
+					if(shapes_&&shapes_.length>0){
+						console.log("begin adding shapes...");
 						for(var i=0;i<shapes_.length;i++){
 							console.log(shapes_[i].type);
 							switch(shapes_[i].type){
 								case "sphere": SphereFactory.makeSphere(Point(shapes_[i].center[0], shapes_[i].center[1], shapes_[i].center[2]),shapes_[i].radius, Color(shapes_[i].color[0], shapes_[i].color[1], shapes_[i].color[2])); break;
 								case "plane": PlaneFactory.makePlane(Point(shapes_[i].point[0],shapes_[i].point[1],shapes_[i].point[2]), Point(shapes_[i].normal[0],shapes_[i].normal[1],shapes_[i].normal[2]), Color(shapes_[i].color[0], shapes_[i].color[1], shapes_[i].color[2])); break;
+								case "lightsource": SphereFactory.makeLightSource(Point(shapes_[i].center[0], shapes_[i].center[1], shapes_[i].center[2]),shapes_[i].radius, Color(shapes_[i].color[0], shapes_[i].color[1], shapes_[i].color[2])); break;
 
 							}
 						}
+						console.log("finish adding shapes");
 					}
-
-					
-					console.log("finish adding shapes");
 				})();
 				var w_=whereSvg.offsetWidth;
 				var h_=whereSvg.offsetHeight;
@@ -1609,11 +1703,7 @@ var SvgScene=function(){
 
 
 var scene1=new SvgScene();
-scene1.init(document.getElementById("viewPort"), [
-	//{type: "plane", point: [0,-1,0], normal: [0,1,0], color:[0,255,0]},
-	//{type: "sphere",center: [0.25,0.25,0.25],radius:0.1,color:[255,255,0]},
-	//{type: "sphere",center: [0.5,0.75,0.25],radius:0.1,color:[255,0,255]}
-]);
+scene1.init(document.getElementById("viewPort"), [{type: "plane", point: [0,-1,0], normal: [0,1,0], color: [150,150,150]},{type: "lightsource", center: [0,3,0], radius: 1, color: [255,255,150]},{type: "sphere", center: [0,0,0], radius: 0.1, color: [0,0,100]}]);
 
 // var scene2=new SvgScene();
 // scene2.init(document.getElementById("viewPort2"),[
