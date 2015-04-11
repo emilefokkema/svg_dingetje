@@ -1053,7 +1053,7 @@ var SvgScene=function(){
 			return s;
 		};
 		var svgObject={};
-		var init=function(where_, shapes_){
+		var init=function(where_, things_){
 			where=where_;
 			where.style.backgroundColor=Color(0,0,0).toString();
 			var makeAxisAndLabel=function(axisName){
@@ -1659,14 +1659,14 @@ var SvgScene=function(){
 			whereSvg.onload=function(){
 				if(currentOnLoad){currentOnLoad();}
 				(function(){
-					if(shapes_&&shapes_.length>0){
+					if(things_&&things_.shapes&&things_.shapes.length>0){
 						console.log("begin adding shapes...");
-						for(var i=0;i<shapes_.length;i++){
-							console.log(shapes_[i].type);
-							switch(shapes_[i].type){
-								case "sphere": SphereFactory.makeSphere(Point(shapes_[i].center[0], shapes_[i].center[1], shapes_[i].center[2]),shapes_[i].radius, Color(shapes_[i].color[0], shapes_[i].color[1], shapes_[i].color[2])); break;
-								case "plane": PlaneFactory.makePlane(Point(shapes_[i].point[0],shapes_[i].point[1],shapes_[i].point[2]), Point(shapes_[i].normal[0],shapes_[i].normal[1],shapes_[i].normal[2]), Color(shapes_[i].color[0], shapes_[i].color[1], shapes_[i].color[2])); break;
-								case "lightsource": SphereFactory.makeLightSource(Point(shapes_[i].center[0], shapes_[i].center[1], shapes_[i].center[2]),shapes_[i].radius, Color(shapes_[i].color[0], shapes_[i].color[1], shapes_[i].color[2])); break;
+						for(var i=0;i<things_.shapes.length;i++){
+							console.log(things_.shapes[i].type);
+							switch(things_.shapes[i].type){
+								case "sphere": SphereFactory.makeSphere(Point(things_.shapes[i].center[0], things_.shapes[i].center[1], things_.shapes[i].center[2]),things_.shapes[i].radius, Color(things_.shapes[i].color[0], things_.shapes[i].color[1], things_.shapes[i].color[2])); break;
+								case "plane": PlaneFactory.makePlane(Point(things_.shapes[i].point[0],things_.shapes[i].point[1],things_.shapes[i].point[2]), Point(things_.shapes[i].normal[0],things_.shapes[i].normal[1],things_.shapes[i].normal[2]), Color(things_.shapes[i].color[0], things_.shapes[i].color[1], things_.shapes[i].color[2])); break;
+								case "lightsource": SphereFactory.makeLightSource(Point(things_.shapes[i].center[0], things_.shapes[i].center[1], things_.shapes[i].center[2]),things_.shapes[i].radius, Color(things_.shapes[i].color[0], things_.shapes[i].color[1], things_.shapes[i].color[2])); break;
 
 							}
 						}
@@ -1677,6 +1677,16 @@ var SvgScene=function(){
 				var h_=whereSvg.offsetHeight;
 				svgObject.setWh(w_,h_);
 				viewPort.setWh(w_,h_);
+				if(things_.viewport){
+					(function(){
+						var viewport=things_.viewport;
+						var lefttop=Point(viewport.lefttop[0], viewport.lefttop[1], viewport.lefttop[2]);
+						var leftaxis=Point(viewport.leftaxis[0], viewport.leftaxis[1], viewport.leftaxis[2]);
+						var topaxis=Point(viewport.topaxis[0], viewport.topaxis[1], viewport.topaxis[2]);
+						var viewpoint=Point(viewport.viewpoint[0], viewport.viewpoint[1], viewport.viewpoint[2]);
+						viewPort.setUp(lefttop, leftaxis, topaxis, viewpoint);
+					})();
+				}
 				twoD.setWh(w_,h_);
 				drawThings();
 			};
@@ -1693,8 +1703,8 @@ var SvgScene=function(){
 	})();
 
 	var sc={
-		init: function(where, shapes){
-			svg.init(where, shapes);
+		init: function(where, things){
+			svg.init(where, things);
 			delete sc.init;
 		}
 	};
@@ -1703,7 +1713,22 @@ var SvgScene=function(){
 
 
 var scene1=new SvgScene();
-scene1.init(document.getElementById("viewPort"), [{type: "plane", point: [0,-1,0], normal: [0,1,0], color: [150,150,150]},{type: "lightsource", center: [0,3,0], radius: 1, color: [255,255,150]},{type: "sphere", center: [0,0,0], radius: 0.1, color: [0,0,100]}]);
+scene1.init(document.getElementById("viewPort"), {
+viewport: 
+	{lefttop: [1.5545733347060784,0.2981042569157081,-0.3333780432701028],
+	leftaxis: [-0.8835326663430154,0.003246168643123881,-1.1073154227813715],
+	topaxis: [-0.011530308421183078,-0.6577960768550384,0.0072717194931122275],
+	viewpoint: [2.661196685509264,-0.07012288005584165,-2.1235880811621644]},
+shapes: [
+	{type: "plane", point: [0,-0.2,0], normal: [0,1,0], color: [100,75,75]},
+	{type: "plane", point: [0,0,0.25], normal: [0,0,-1], color: [75,75,100]},
+	{type: "lightsource", center: [0,3,0], radius: 1, color: [100,100,50]},
+	{type: "lightsource", center: [0,3,-5], radius: 1, color: [100,100,50]},
+	{type: "sphere", center: [0,0,0], radius: 0.1, color: [0,0,100]},
+	{type: "sphere", center: [0,0.5,0], radius: 0.1, color: [0,0,100]},
+	{type: "sphere", center: [0.5,0,0], radius: 0.1, color: [0,0,100]},
+	{type: "sphere", center: [0.5,0.5,0], radius: 0.1, color: [0,0,100]}]
+});
 
 // var scene2=new SvgScene();
 // scene2.init(document.getElementById("viewPort2"),[
