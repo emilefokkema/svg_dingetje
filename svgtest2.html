@@ -257,7 +257,16 @@ var SvgScene=function(){
 			topAxis=topAxis_.unit().scale(leftAxis_.norm()*h/w);
 			normal=leftAxis.cross(topAxis);
 			viewPoint=viewPoint_;
-			//TODO: make sure the origin ends up in the middle?
+			var middle=leftTop.plus(leftAxis.plus(topAxis).scale(0.5));
+			viewPoint=middle.plus(viewPoint.minus(middle).minus(viewPoint.minus(middle).projectOnPlane(or, normal)));
+			var crossX=topAxis.unit().cross(leftAxis.cross(or.minus(viewPoint)).unit());
+			var dirX=crossX.dot(leftAxis)>=0?-1:1;
+			var angleX=dirX*Math.asin(crossX.norm());
+			rot2X(angleX);
+			var crossY=leftAxis.unit().cross(topAxis.cross(or.minus(viewPoint)).unit());
+			var dirY=crossY.dot(topAxis)>=0?-1:1;
+			var angleY=dirY*Math.asin(crossY.norm());
+			rot2Y(angleY);
 		};
 		var horizonLt=function(line){
 			var direction=line.baseVector();
@@ -317,6 +326,12 @@ var SvgScene=function(){
 		var rotZ=function(angle){
 			rotateWithOtherRotation(OtherRotation(or, leftAxis.cross(topAxis), angle));
 		};
+		var rot2X=function(angle){
+			rotateWithOtherRotation(OtherRotation(viewPoint, leftAxis, angle));
+		};
+		var rot2Y=function(angle){
+			rotateWithOtherRotation(OtherRotation(viewPoint, topAxis, angle));
+		};
 		var scale=function(r){
 			leftTop=leftTop.scale(r);
 			leftAxis=leftAxis.scale(r);
@@ -351,6 +366,8 @@ var SvgScene=function(){
 			rotX: rotX,
 			rotY: rotY,
 			rotZ: rotZ,
+			rot2X: rot2X,
+			rot2Y: rot2Y,
 			getVisiblePointsBetween: getVisiblePointsBetween,
 			getVisiblePointsOn: getVisiblePointsOn,
 			toString: toString,
@@ -765,17 +782,26 @@ var SvgScene=function(){
 			lightSources.push(s);
 			return s;
 		};
+		var draw=function(){
+			for(var i=0;i<spheres.length;i++){
+				spheres[i].draw();
+			}
+			for(var i=0;i<lightSources.length;i++){
+				lightSources[i].draw();
+			}
+		};
 		return {
 			makeSphere: makeSphere,
 			makeLightSource: makeLightSource,
 			spheres: function(){return spheres;},
 			lightSources: function(){return lightSources;},
+			draw: draw
 		};
 	})();
 
 	var drawThings=function(){
 		svg.drawAxes();
-		var i;
+		//var i;
 		// var lineSegments=LineSegmentFactory.lineSegments();
 		// for(i=0;i<lineSegments.length;i++){
 		// 	lineSegments[i].draw();
@@ -791,14 +817,15 @@ var SvgScene=function(){
 		// 	planes[i].draw();
 		// }
 		PlaneFactory.draw();
-		var spheres=SphereFactory.spheres();
-		for(i=0;i<spheres.length;i++){
-			spheres[i].draw();
-		}
-		var lightSources=SphereFactory.lightSources();
-		for(i=0;i<lightSources.length;i++){
-			lightSources[i].draw();
-		}
+		SphereFactory.draw();
+		// var spheres=SphereFactory.spheres();
+		// for(i=0;i<spheres.length;i++){
+		// 	spheres[i].draw();
+		// }
+		// var lightSources=SphereFactory.lightSources();
+		// for(i=0;i<lightSources.length;i++){
+		// 	lightSources[i].draw();
+		// }
 	};
 
 	var svg=(function(){
@@ -1157,7 +1184,7 @@ var SvgScene=function(){
 				button.onmouseleave=function(){stopFunction();button.style.backgroundColor='rgb(50,50,50)';};
 				//button.onmouseup=onmouseup||function(){};
 				button.appendChild((function(){
-					var a=document.createElement('a');
+					var a=document.createElement('div');
 					a.setAttribute('style','position:relative;top:50%;transform: translateY(-50%);');
 					a.appendChild(document.createTextNode(text));
 					return a;
@@ -1187,7 +1214,7 @@ var SvgScene=function(){
 			var xmlDialog=(function(){
 				var xmlDialog=document.createElement('div');
 				xmlDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;opacity:0.75');
-				var button=makeButton(null,'OK',function(){xmlDialog.style.display='none';}, function(){}, 1, {width:100});
+				var button=makeButton(null,'OK',function(){xmlDialog.style.display='none';}, function(){}, 1, {width:100,height:50});
 				var text=document.createElement('textarea');
 				text.setAttribute('style', 'background-color:rgb(50,50,50);color: #FFFFFF;border: none;resize:none;width:100%;height:100%');
 				var table=makeTable([[text],[button]],['90%','10%']);
@@ -1451,7 +1478,7 @@ var SvgScene=function(){
 			var jsonDialog=(function(){
 				var jsonDialog=document.createElement('div');
 				jsonDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;opacity:0.75');
-				var button=makeButton(null,'OK',function(){jsonDialog.style.display='none';}, function(){}, 1, {width:100});
+				var button=makeButton(null,'OK',function(){jsonDialog.style.display='none';}, function(){}, 1, {width:100,height:50});
 				var text=document.createElement('textarea');
 				text.setAttribute('style', 'background-color:rgb(50,50,50);color: #FFFFFF;border: none;resize:none;width:100%;height:100%');
 				var table=makeTable([[text],[button]],['90%','10%']);
@@ -1648,10 +1675,18 @@ var SvgScene=function(){
 			where.appendChild(slider3.bar);
 			where.appendChild(slider3.handle);
 
+			var slider4=makeSlider({right:60,top:20}, {width:10,height:150},1,newSlideMover(function(amount){viewPort.rot2X(amount);drawThings();}, function(x,y){return (y-95)/300;}));
+			where.appendChild(slider4.bar);
+			where.appendChild(slider4.handle);
+
 
 			var slider2=makeSlider({right:20,bottom:20}, {width:150,height:10},0,newSlideMover(function(amount){viewPort.rotZ(amount);drawThings();}, function(x,y){return (x-95)/100}));
 			where.appendChild(slider2.bar);
 			where.appendChild(slider2.handle);
+
+			var slider5=makeSlider({right:20,bottom:40}, {width:150,height:10},0,newSlideMover(function(amount){viewPort.rot2Y(amount);drawThings();}, function(x,y){return (x-95)/300;}));
+			where.appendChild(slider5.bar);
+			where.appendChild(slider5.handle);
 
 			//END buttons and such
 
@@ -1713,22 +1748,7 @@ var SvgScene=function(){
 
 
 var scene1=new SvgScene();
-scene1.init(document.getElementById("viewPort"), {
-viewport: 
-	{lefttop: [1.5545733347060784,0.2981042569157081,-0.3333780432701028],
-	leftaxis: [-0.8835326663430154,0.003246168643123881,-1.1073154227813715],
-	topaxis: [-0.011530308421183078,-0.6577960768550384,0.0072717194931122275],
-	viewpoint: [2.661196685509264,-0.07012288005584165,-2.1235880811621644]},
-shapes: [
-	{type: "plane", point: [0,-0.2,0], normal: [0,1,0], color: [100,75,75]},
-	{type: "plane", point: [0,0,0.25], normal: [0,0,-1], color: [75,75,100]},
-	{type: "lightsource", center: [0,3,0], radius: 1, color: [100,100,50]},
-	{type: "lightsource", center: [0,3,-5], radius: 1, color: [100,100,50]},
-	{type: "sphere", center: [0,0,0], radius: 0.1, color: [0,0,100]},
-	{type: "sphere", center: [0,0.5,0], radius: 0.1, color: [0,0,100]},
-	{type: "sphere", center: [0.5,0,0], radius: 0.1, color: [0,0,100]},
-	{type: "sphere", center: [0.5,0.5,0], radius: 0.1, color: [0,0,100]}]
-});
+scene1.init(document.getElementById("viewPort"), {viewport: {lefttop: [1.574768191169261,0.5787247239608981,-0.0281498181267249], leftaxis: [-0.6966716325141249,0.1021206236939497,-1.2292306416218275], topaxis: [0.030051619509980476,-1.0505486652578204,-0.10430816756367789], viewpoint: [2.1870455286857613,0.1841138661860202,-1.2242216432395054]}, shapes: [{type: "plane", point: [0,-0.2,0], normal: [0,1,0], color: [100,75,75]},{type: "plane", point: [0,0,0.25], normal: [0,0,-1], color: [75,75,100]},{type: "lightsource", center: [0,3,0], radius: 1, color: [100,100,50]},{type: "lightsource", center: [0,3,-5], radius: 1, color: [100,100,50]},{type: "sphere", center: [0,0,0], radius: 0.1, color: [0,0,100]},{type: "sphere", center: [0,0.5,0], radius: 0.1, color: [0,0,100]},{type: "sphere", center: [0.5,0,0], radius: 0.1, color: [0,0,100]},{type: "sphere", center: [0.5,0.5,0], radius: 0.1, color: [0,0,100]}]});
 
 // var scene2=new SvgScene();
 // scene2.init(document.getElementById("viewPort2"),[
