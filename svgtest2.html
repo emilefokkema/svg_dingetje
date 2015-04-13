@@ -423,6 +423,7 @@ var SvgScene=function(){
 			var setSvg=function(svg_){
 				thisSvg=svg_;
 			};
+			var remove=function(){thisSvg.remove();};
 			setFromTo(from_, to_);
 			return {
 				setFromTo: setFromTo,
@@ -430,7 +431,8 @@ var SvgScene=function(){
 				setColor: setColor,
 				setSvg: function(svg_){setSvg(svg_); return this;},
 				highlightOn: highlightOn,
-				highlightOff: highlightOff
+				highlightOff: highlightOff,
+				remove: remove
 			};
 		};
 		var makeLineSegment=function(from, to, color, thickness){
@@ -438,15 +440,21 @@ var SvgScene=function(){
 			var index=currentNumber;
 			var svgThing=svg.addLineSegment(0,0,0,0, id, index, color, thickness);
 			var ls=LineSegment(from, to).setSvg(svgThing);
-			lineSegments[currentNumber]=ls;
+			lineSegments.push(ls);
 			currentNumber++;
 			return ls;
+		};
+		var removeLineSegment=function(lineSegment){
+			lineSegment.remove();
+			var index=lineSegments.indexOf(lineSegment);
+			lineSegments.splice(index, 1);
 		};
 		var draw=function(){for(var i=0;i<lineSegments.length;i++){
 			lineSegments[i].draw();
 		}};
 		return {
 			makeLineSegment: makeLineSegment,
+			removeLineSegment: removeLineSegment,
 			lineSegments: function(){return lineSegments;},
 			draw: draw
 		};
@@ -477,6 +485,7 @@ var SvgScene=function(){
 				}
 				thisSvg.draw();
 			};
+			var remove=function(){thisSvg.remove();};
 			var setColor=function(color){
 				thisSvg.setColor(color);
 			};
@@ -492,7 +501,8 @@ var SvgScene=function(){
 				setColor: setColor,
 				setSvg: function(svg_){setSvg(svg_); return this;},
 				highlightOn: highlightOn,
-				highlightOff: highlightOff
+				highlightOff: highlightOff,
+				remove: remove
 			};
 		};
 		var makeLineLine=function(p1, p2, color, thickness){
@@ -500,9 +510,14 @@ var SvgScene=function(){
 			var index=currentNumber;
 			var svgThing=svg.addLineLine(0,0,0,0, id, index, color, thickness);
 			var ll=LineLine(p1, p2).setSvg(svgThing);
-			lineLines[currentNumber]=ll;
+			lineLines.push(ll);
 			currentNumber++;
 			return ll;
+		};
+		var removeLineLine=function(lineLine){
+			lineLine.remove();
+			var index=lineLines.indexOf(lineLine);
+			lineLines.splice(index, 1);
 		};
 		var draw=function(){
 			for(var i=0;i<lineLines.length;i++){
@@ -511,6 +526,7 @@ var SvgScene=function(){
 		};
 		return {
 			makeLineLine: makeLineLine,
+			removeLineLine: removeLineLine,
 			lineLines: function(){return lineLines;},
 			draw: draw
 		};
@@ -627,6 +643,12 @@ var SvgScene=function(){
 			var setSvg=function(svg_){
 				thisSvg=svg_;
 			};
+			var remove=function(){
+				thisSvg.remove();
+				for(var i in gridLines){
+					LineLineFactory.removeLineLine(gridLines[i]);
+				}
+			};
 			var setGrid=function(){
 				var pairwiseGridPoints=getPairwiseGridPoints();
 				for(var i in pairwiseGridPoints){
@@ -653,7 +675,8 @@ var SvgScene=function(){
 				color: function(){return color;},
 				setPointAndNormal: setPointAndNormal,
 				highlightOn: highlightOn,
-				highlightOff: highlightOff
+				highlightOff: highlightOff,
+				remove: remove
 			};
 		};
 		var makePlane=function(point, normal, color){
@@ -661,13 +684,19 @@ var SvgScene=function(){
 			var index=currentNumber;
 			var svgThing=svg.addPlane(0,0,0,0,0,0,0,0,id,index, color);
 			var p=Plane(point, normal, color).setSvg(svgThing);
-			planes[currentNumber]=p;
+			planes.push(p);
 			currentNumber++;
 			return p;
+		};
+		var removePlane=function(plane){
+			plane.remove();
+			var index=planes.indexOf(plane);
+			planes.splice(index, 1);
 		};
 		var draw=function(){for(var i=0;i<planes.length;i++){planes[i].draw();}};
 		return {
 			makePlane: makePlane,
+			removePlane: removePlane,
 			planes: function(){return planes;},
 			draw:draw
 		};
@@ -764,6 +793,10 @@ var SvgScene=function(){
 				return pointsOnLatitude_;
 			};
 			var setSvg=function(svg_){thisSvg=svg_;};
+			var remove=function(){
+				thisSvg.remove();
+				for(var i in gridLineSegments){LineSegmentFactory.removeLineSegment(gridLineSegments[i]);}
+			};
 			var toString=(function(){
 				if(!toBecomeLightSource){
 					return function(){
@@ -818,8 +851,19 @@ var SvgScene=function(){
 				color: function(){return color;},
 				setCenterAndRadius: setCenterAndRadius,
 				highlightOn: highlightOn,
-				highlightOff: highlightOff
+				highlightOff: highlightOff,
+				remove: remove
 			};
+		};
+		var removeSphere=function(sphere){
+			sphere.remove();
+			var index=spheres.indexOf(sphere);
+			spheres.splice(index,1);
+		};
+		var removeLightSource=function(lightSource){
+			lightSource.remove();
+			var index=lightSources.indexOf(lightSource);
+			lightSources.splice(index, 1);
 		};
 		var makeSphere=function(center, radius, color){
 			var id="sphere"+currentNumber;
@@ -827,7 +871,7 @@ var SvgScene=function(){
 			var svgThing=svg.addSphere(color);
 			var s=Sphere(center, radius, color, false).setSvg(svgThing);
 			console.log(s.toString());
-			spheres[currentNumber]=s;
+			spheres.push(s);
 			currentNumber++;
 			return s;
 		};
@@ -847,6 +891,8 @@ var SvgScene=function(){
 		};
 		return {
 			makeSphere: makeSphere,
+			removeSphere: removeSphere,
+			removeLightSource: removeLightSource,
 			makeLightSource: makeLightSource,
 			spheres: function(){return spheres;},
 			lightSources: function(){return lightSources;},
@@ -870,7 +916,8 @@ var SvgScene=function(){
 		};
 		var doSomething=function(){
 			var req=new XMLHttpRequest();
-			req.open("GET","test.txt", false);
+			req.onload=function(){console.log(this.responseText);};
+			req.open("GET","test.txt", true);
 			req.send();
 		};
 		return {
@@ -1050,6 +1097,7 @@ var SvgScene=function(){
 				svgElement.setAttribute("x2", lt2.left);
 				svgElement.setAttribute("y2", lt2.top);
 			};
+			svgl.remove=function(){whereSvg.removeChild(svgElement);};
 			svgl.setColor=function(color1){
 				color=color1;
 				highlighter=newHighlighter(color1, svgElement);
@@ -1103,6 +1151,7 @@ var SvgScene=function(){
 			svgpl.draw=function(){
 				svgElement.setAttribute("points", lt1.left+","+lt1.top+" "+lt2.left+","+lt2.top+" "+lt3.left+","+lt3.top+" "+lt4.left+","+lt4.top);
 			};
+			svgpl.remove=function(){whereSvg.removeChild(svgElement);};
 			svgpl.setColor=function(color1){
 				color=color1;
 				highligher=newHighlighter(color1, svgElement);
@@ -1140,6 +1189,7 @@ var SvgScene=function(){
 				svgElement.style.fill=color1.toString();
 				svgElement.style.fillOpacity='0.4';
 			};
+			svgsph.remove=function(){whereSvg.removeChild(svgElement);};
 			svgsph.highlightOn=function(){
 				highlighter.on();
 			};
@@ -1341,6 +1391,7 @@ var SvgScene=function(){
 					var s1=lines.join('\n').replace(/^\n/g, '');
 					xmlDialog.style.display="initial";
 					text.value=s1;
+					text.select();
 				};
 				return {dialog: xmlDialog,text: text,showXml:showXml};
 			})();
@@ -1487,12 +1538,21 @@ var SvgScene=function(){
 						row.appendChild(table);
 						return row;
 					},
-					"rowContainer": function(title, content){
+					"rowContainer": function(title, content, highlightOn, highlightOff, remove){
 						var row=document.createElement('div');
 						row.setAttribute('style','background-color:rgb(75, 75, 75);margin:5px;padding:2px;color:#FFFFFF');
+						row.onmouseover=highlightOn;
+						row.onmouseleave=highlightOff;
 						var titleDiv=document.createElement('div');
-						titleDiv.setAttribute('style','font-weight:bold');
+						titleDiv.setAttribute('style','font-weight:bold;position:relative');
 						titleDiv.appendChild(document.createTextNode(title));
+						titleDiv.appendChild((function(){
+							var del=document.createElement('a');
+							del.setAttribute('style','position:absolute;right:0px');
+							del.appendChild(document.createTextNode(' x'));
+							if(remove){del.onclick=function(){remove();drawThings();shapeListDialog.showShapeList(sceneShapeList());};}
+							return del;
+						})());
 						row.appendChild(titleDiv);
 						var contentDiv=document.createElement('div');
 						contentDiv.appendChild(content);
@@ -1501,8 +1561,8 @@ var SvgScene=function(){
 					},
 					"plane": function(plane){
 						var content=document.createElement("div");
-						content.onmouseover=function(){plane.highlightOn();};
-						content.onmouseleave=function(){plane.highlightOff();};
+						//content.onmouseover=function(){plane.highlightOn();};
+						//content.onmouseleave=function(){plane.highlightOff();};
 						var newpoint=plane.point();
 						var newnormal=plane.normal();
 						var newcolor=plane.color();
@@ -1517,12 +1577,12 @@ var SvgScene=function(){
 						content.appendChild(this["propertyRow"]('normal:', normalEditor.box));
 						content.appendChild(this["propertyRow"]('color:', colorEditor.box));
 						var onEdit=function(){pointEditor.onEdit();normalEditor.onEdit();colorEditor.onEdit();plane.setPointAndNormal(newpoint, newnormal);plane.setColor(newcolor);};
-						return {row: this["rowContainer"]("plane",content),onEdit:onEdit};
+						return {row: this["rowContainer"]("plane",content, function(){plane.highlightOn();}, function(){plane.highlightOff();}, function(){PlaneFactory.removePlane(plane);}),onEdit:onEdit};
 					},
 					"sphere": function(sphere){
 						var content=document.createElement("div");
-						content.onmouseover=function(){sphere.highlightOn();};
-						content.onmouseleave=function(){sphere.highlightOff();};
+						//content.onmouseover=function(){sphere.highlightOn();};
+						//content.onmouseleave=function(){sphere.highlightOff();};
 						var newcenter=sphere.center();
 						var newradius=sphere.radius();
 						var newcolor=sphere.color();
@@ -1540,11 +1600,13 @@ var SvgScene=function(){
 							colorEditor.onEdit();
 							sphere.setCenterAndRadius(newcenter, newradius);sphere.setColor(newcolor);
 						};
-						return {row: this["rowContainer"]("sphere",content), onEdit:onEdit};
+						return {row: this["rowContainer"]("sphere",content, function(){sphere.highlightOn();}, function(){sphere.highlightOff();}, function(){SphereFactory.removeSphere(sphere);}), onEdit:onEdit};
 						//return this["rowContainer"]("sphere",content);
 					},
 					"lightsource": function(lightSource){
 						var content=document.createElement("div");
+						//content.onmouseover=function(){lightSource.highlightOn();};
+						//content.onmouseleave=function(){lightSource.highlightOff();};
 						var newcenter=lightSource.center();
 						var newradius=lightSource.radius();
 						var newcolor=lightSource.color();
@@ -1557,7 +1619,7 @@ var SvgScene=function(){
 						content.appendChild(this["propertyRow"]('radius: ',radiusEditor.box));
 						content.appendChild(this["propertyRow"]('color:', colorEditor.box));
 						var onEdit=function(){centerEditor.onEdit();radiusEditor.onEdit();colorEditor.onEdit();lightSource.setCenterAndRadius(newcenter, newradius);lightSource.setColor(newcolor);};
-						return {row: this["rowContainer"]("light source",content), onEdit:onEdit};
+						return {row: this["rowContainer"]("light source",content, function(){lightSource.highlightOn();}, function(){lightSource.highlightOff();}, function(){SphereFactory.removeLightSource(lightSource);}), onEdit:onEdit};
 						//return this["rowContainer"]("light source",content);
 					}
 				};
