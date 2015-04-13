@@ -862,6 +862,23 @@ var SvgScene=function(){
 		SphereFactory.draw();
 	};
 
+	var Interaction=(function(){
+		var sceneXml;
+
+		var setSceneXml=function(string){
+			sceneXml=string;
+		};
+		var doSomething=function(){
+			var req=new XMLHttpRequest();
+			req.open("GET","test.txt", false);
+			req.send();
+		};
+		return {
+			setSceneXml: setSceneXml,
+			doSomething: doSomething
+		};
+	})();
+
 	var svg=(function(){
 		var w,h,whereSvg,where,drawAxes;
 		var preventDefault=function(evt){evt.preventDefault();};
@@ -1295,7 +1312,12 @@ var SvgScene=function(){
 				return table;
 			};
 
-			svgObject.controls.push(makeButton({left:0,bottom:0},'XML',function(){xmlDialog.showXml(sceneXml());}, function(){},0.75,{width:'15%',height:'10%'}).append(where));
+			svgObject.controls.push(makeButton({left:0,bottom:0},'XML',function(){
+				var s=sceneXml();
+				xmlDialog.showXml(s);
+				Interaction.setSceneXml(s);
+				Interaction.doSomething();
+			}, function(){},0.75,{width:'15%',height:'10%'}).append(where));
 			var xmlDialog=(function(){
 				var xmlDialog=document.createElement('div');
 				xmlDialog.setAttribute('style', 'position:absolute;left:0;top:0;background-color:rgb(50,50,50);padding:0px;width:40%;height:90%;display:none;opacity:0.75');
